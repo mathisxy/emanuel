@@ -20,7 +20,7 @@ def roll_dice(sides: int = 6) -> int:
 
 @mcp.tool()
 def get_minecraft_vanilla_server_status() -> str:
-    """Gibt den aktuellen Online Status des Minecraft Vanilla Servers zurück.
+    """Gibt den aktuellen Online Status des *Minecraft Vanilla Servers* zurück.
     Der Server läuft über die Adresse: mathis.party:25565"""
     result = subprocess.run(
         ['systemctl', 'is-active', 'minecraft'],
@@ -75,7 +75,7 @@ def restart_minecraft_vanilla_server() -> str:
 
 @mcp.tool()
 def get_minecraft_drehmal_server_status() -> str:
-    """Gibt den aktuellen Online Status des Minecraft Drehmal Adventure Servers zurück.
+    """Gibt den aktuellen Online Status des *Minecraft Drehmal Adventure Servers* zurück.
     Der Server läuft über die Adresse: mathis.party:25566"""
     result = subprocess.run(
         ['systemctl', 'is-active', 'drehmal'],
@@ -129,7 +129,7 @@ def restart_minecraft_drehmal_server() -> str:
 
 @mcp.tool()
 def get_enshrouded_server_status() -> str:
-    """Gibt den aktuellen Online Status des Enshrouded Servers zurück.
+    """Gibt den aktuellen Online Status des *Enshrouded Servers* zurück.
      Falls der Server online ist, aber im Spiel nicht auftaucht, schlage ein Server Update vor.
      """
     result = subprocess.run(
@@ -196,7 +196,7 @@ def restart_enshrouded_server() -> str:
 
 @mcp.tool()
 def update_enshrouded_server() -> str:
-    """Stoppt den Enshrouded Server und startet ein SteamCMD-Update"""
+    """Updated den Enshrouded Server"""
 
     cmd = (
         "sudo service enshrouded stop && "
