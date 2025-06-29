@@ -1,6 +1,6 @@
 import importlib
 import io
-from enum import Enum
+import traceback
 from typing import List, Dict
 
 import discord
@@ -8,8 +8,6 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import os
 from mistralai import Mistral
-from mistralai.extra.mcp.sse import MCPClientSSE, SSEServerParams
-from mistralai.extra.run.context import RunContext
 
 load_dotenv()
 
@@ -49,7 +47,11 @@ async def handle_message(message):
         async with message.channel.typing():
 
             history = []
+            max_count = 3
             async for msg in message.channel.history(limit=20, oldest_first=False):
+
+                if len(history) >= max_count:
+                    break
 
                 if not msg.author == bot.user and not bot.user in msg.mentions:
                     continue
@@ -65,9 +67,8 @@ async def handle_message(message):
                     history.append({"role": role, "content": content})
 
             history.reverse()
-            print(history)
 
-            reply = await call_ai(history, "Du bist Manuel, ein Discord Bot", ai)
+            reply = await call_ai(history, "Du bist Emanuel, ein Discord Bot", ai)
             print(reply)
             if len(reply) > 2000:
                 file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
