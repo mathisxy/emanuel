@@ -17,8 +17,6 @@ discord_token = os.getenv("DISCORD_TOKEN")
 mcp_server_url = os.getenv("MCP_SERVER_URL")
 ai=os.getenv("AI", "mistral")
 
-client = Mistral(api_key=api_key)
-
 intents = discord.Intents.default()
 intents.message_content = True  # Für Textnachrichten lesen
 intents.messages = True  # explizit hinzufügen
@@ -47,7 +45,7 @@ async def handle_message(message):
         async with message.channel.typing():
 
             history = []
-            max_count = 3
+            max_count = int(os.getenv("MAX_MESSAGE_COUNT", 3))
             async for msg in message.channel.history(limit=20, oldest_first=False):
 
                 if len(history) >= max_count:
@@ -56,7 +54,6 @@ async def handle_message(message):
                 if not msg.author == bot.user and not bot.user in msg.mentions:
                     continue
 
-                role = "user" if msg.author != bot.user else "assistant"
                 content = msg.clean_content
 
                 if not content and msg.attachments:
@@ -64,11 +61,22 @@ async def handle_message(message):
                     content = f"Eine Datei wurde gesendet von {author}: {msg.attachments[0].filename}"
 
                 if content:
-                    history.append({"role": role, "content": content})
+                    if msg.author == bot.user:
+                        history.append({"role": "assistant", "content": content})
+                    else:
+                        history.append({"role": "user", "content": f"{{'discord_user': '{msg.author}', 'message': '{content}'}}"})
+
 
             history.reverse()
 
-            reply = await call_ai(history, "Du bist Emanuel, ein Discord Bot", ai)
+            channel_name = message.channel.name if hasattr(message.channel, "name") else f"DM mit {message.author}"
+
+            instructions = f"""
+            Du bist Emanuel, ein Discord Bot.
+            Du empfängst Nachrichten aus dem Discord Channel: {channel_name}
+            """
+
+            reply = await call_ai(history, instructions, ai)
             print(reply)
             if len(reply) > 2000:
                 file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
