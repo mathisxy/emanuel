@@ -2,7 +2,6 @@ import json
 import os
 import re
 from collections.abc import Callable
-from symtable import Function
 
 from ollama import AsyncClient
 from typing import List, Dict, Awaitable
