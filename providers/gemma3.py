@@ -114,7 +114,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                     history = history + [
                         {"role": "assistant", "content": response},
-                        {"role": "system", "content": f"Hier sind die Toolergebnisse, nur du kannst sie sehen: {tool_results_message}"}
+                        {"role": "system", "content": f"Hier sind die Toolergebnisse: {tool_results_message}"}
                     ]
 
                 else:
