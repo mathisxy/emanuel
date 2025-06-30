@@ -1,9 +1,11 @@
 import json
 import os
 import re
+from collections.abc import Callable
+from symtable import Function
 
 from ollama import AsyncClient
-from typing import List, Dict
+from typing import List, Dict, Awaitable
 
 from mcp import ClientSession, Tool
 from mcp.client.streamable_http import streamablehttp_client
@@ -35,6 +37,7 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 
 WICHTIG: Wenn du ein Tool verwenden möchtest, antworte EXAKT in diesem Format:
 
+
 <TOOL_CALL>
 {{
   "name": "tool_name",
@@ -45,6 +48,7 @@ WICHTIG: Wenn du ein Tool verwenden möchtest, antworte EXAKT in diesem Format:
 }}
 </TOOL_CALL>
 
+
 Nach einem Tool-Aufruf wirst du das Ergebnis erhalten und kannst normal antworten.
 
 Regeln:
@@ -52,9 +56,10 @@ Regeln:
 2. Verwende das EXAKTE Format für Tool-Calls
 3. Fülle alle erforderlichen Parameter aus
 4. Nach dem Tool-Call, warte auf das Ergebnis bevor du antwortest
+5. Du kannst mehrere Tool-Calls in einer Nachricht machen
 """
 
-async def call_ai(history: List[Dict], instructions: str) -> str:
+async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]]):
 
     async with streamablehttp_client(os.getenv("MCP_SERVER_URL")) as (
             read_stream,
@@ -83,9 +88,14 @@ async def call_ai(history: List[Dict], instructions: str) -> str:
 
                 if tool_calls:
 
+                    print("TOOL CALLS")
+                    print(response)
+
                     tool_results = []
 
                     for tool_call in tool_calls:
+
+                        print(f"TOOL CALL: {tool_call.get("name")}")
 
                         name = tool_call.get("name")
                         arguments = tool_call.get("arguments", {})
@@ -95,13 +105,21 @@ async def call_ai(history: List[Dict], instructions: str) -> str:
 
                     tool_results_message = "\n\n".join(tool_results)
 
+                    print(tool_results_message)
+
+                    pattern = r'<TOOL_CALL>.*?</TOOL_CALL>'
+                    cleaned_response = re.sub(pattern, '', response, flags=re.DOTALL)
+                    if cleaned_response:
+                        await reply_callback(cleaned_response.strip())
+
                     history = history + [
-                        {"role": "assistant", "content": f"Nur du kannst das sehen: {response}"},
-                        {"role": "user", "content": f"Hier sind die Toolergebnisse, nur du kannst sie sehen: {tool_results_message}"}
+                        {"role": "assistant", "content": response},
+                        {"role": "system", "content": f"Hier sind die Toolergebnisse, nur du kannst sie sehen: {tool_results_message}"}
                     ]
 
                 else:
-                    return response
+                    await reply_callback(response)
+                    return
 
 
 def extract_tool_calls(text: str) -> List[Dict]:

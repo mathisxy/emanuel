@@ -28,7 +28,7 @@ def get_minecraft_vanilla_server_status() -> str:
         text=True,
         timeout=5
     )
-    return result.stdout.strip()
+    return "online" if result.stdout.strip() == "active" else "offline"
 
 @mcp.tool()
 def start_minecraft_vanilla_server() -> str:
@@ -83,7 +83,7 @@ def get_minecraft_drehmal_server_status() -> str:
         text=True,
         timeout=5
     )
-    return result.stdout.strip()
+    return "online" if result.stdout.strip() == "active" else "offline"
 
 @mcp.tool()
 def start_minecraft_drehmal_server() -> str:
@@ -138,7 +138,7 @@ def get_enshrouded_server_status() -> str:
         text=True,
         timeout=5
     )
-    return result.stdout.strip()
+    return "online" if result.stdout.strip() == "active" else "offline"
 
 @mcp.tool()
 def get_enshrouded_server_address() -> str:

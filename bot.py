@@ -8,6 +8,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import os
 from mistralai import Mistral
+from mistralai_azure import Function
 
 load_dotenv()
 
@@ -23,13 +24,13 @@ intents.messages = True  # explizit hinzufügen
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-async def call_ai(history: List[Dict], instructions: str, provider: str) -> str:
+async def call_ai(history: List[Dict], instructions: str, provider: str, reply_callback) -> str:
     """Lädt dynamisch den AI-Provider und ruft ihn auf"""
     try:
         # Importiere das Modul basierend auf dem Provider-Namen
         module = importlib.import_module(f"providers.{provider}")
         # Rufe die call_ai Funktion des Moduls auf
-        return await module.call_ai(history, instructions)
+        return await module.call_ai(history, instructions, reply_callback)
     except ImportError:
         return f"AI-Provider '{provider}' nicht gefunden!"
     except Exception as e:
@@ -43,6 +44,14 @@ async def handle_message(message):
     if bot.user in message.mentions:
 
         async with message.channel.typing():
+
+            async def reply_callback(reply: str):
+                print(reply)
+                if len(reply) > 2000:
+                    file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
+                    await message.channel.send(file=file)
+                else:
+                    await message.channel.send(reply)
 
             history = []
             max_count = int(os.getenv("MAX_MESSAGE_COUNT", 3))
@@ -74,15 +83,11 @@ async def handle_message(message):
             instructions = f"""
             Du bist Emanuel, ein Discord Bot.
             Du empfängst Nachrichten aus dem Discord Channel: {channel_name}
+            Wenn du etwas nicht weißt, sagst du dass du es nicht weißt und erfindest nichts.
             """
 
-            reply = await call_ai(history, instructions, ai)
-            print(reply)
-            if len(reply) > 2000:
-                file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
-                await message.reply(file=file)
-            else:
-                await message.reply(reply)
+            await call_ai(history, instructions, ai, reply_callback)
+
 
 
 @bot.event
