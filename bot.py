@@ -45,7 +45,7 @@ async def handle_message(message):
 
             async def reply_callback(reply: str):
                 reply = reply.strip()
-                print(reply)
+                print(f"REPLY: {reply}")
                 if not reply:
                     return
                 if len(reply) > 2000:
@@ -83,7 +83,7 @@ async def handle_message(message):
             channel_name = f"DM mit {message.author}" if isinstance(message.channel, discord.DMChannel) else message.channel.name
 
             instructions = f"""
-            Du bist Emanuel, ein Discord Bot.
+            Du bist Emanuel.
             Du empfängst Nachrichten aus dem Discord Channel: {channel_name}
             Wenn du etwas nicht weißt, sagst du dass du es nicht weißt und erfindest nichts.
             Du bist der coolere Zwillingsbruder von Moritz (er heißt leninlover999 oder LeninLover69 auf Discord).
@@ -99,7 +99,11 @@ async def handle_message(message):
 
 @bot.event
 async def on_message(message: discord.Message):
-    await handle_message(message)
+    try:
+        await handle_message(message)
+    except Exception as e:
+        print(e)
+        return f"{e}"
 
 
 

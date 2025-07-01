@@ -19,7 +19,7 @@ def roll_dice(sides: int = 6) -> int:
     return result
 
 @mcp.tool()
-def get_minecraft_vanilla_server_online_status() -> str:
+def get_minecraft_vanilla_server_status() -> str:
     """Gibt den aktuellen Online Status des *Minecraft Vanilla Servers* zurück.
     Der Server läuft über die Adresse: mathis.party:25565"""
     result = subprocess.run(
@@ -74,7 +74,7 @@ def restart_minecraft_vanilla_server() -> str:
 
 
 @mcp.tool()
-def get_minecraft_drehmal_server_online_status() -> str:
+def get_minecraft_drehmal_server_status() -> str:
     """Gibt den aktuellen Online Status des *Minecraft Drehmal Adventure Servers* zurück.
     Der Server läuft über die Adresse: mathis.party:25566"""
     result = subprocess.run(
@@ -128,7 +128,7 @@ def restart_minecraft_drehmal_server() -> str:
         return f"Fehler beim Neustarten: {result.stderr.strip()}"
 
 @mcp.tool()
-def get_enshrouded_server_online_status() -> str:
+def get_enshrouded_server_status() -> str:
     """Gibt den aktuellen Online Status des *Enshrouded Servers* zurück.
      Falls der Server online ist, aber im Spiel nicht auftaucht, schlage ein Server Update vor.
      """

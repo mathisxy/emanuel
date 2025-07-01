@@ -4,7 +4,6 @@ import os
 import re
 from collections.abc import Callable
 
-from discord.ext.commands.core import hooked_wrapped_callback
 from ollama import AsyncClient
 from typing import List, Dict, Awaitable, Tuple
 
@@ -33,21 +32,18 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
     return f"""Du bist hilfreich. 
+Für das beantworten von Fragen der User, zu der es ein passendes Tool gibt, nutzt du immer nur die Antworten von Tool-Calls. Du nutzt dafür keine vorherigen Chat-Nachrichten.
     
-    Für das beantworten von Fragen der User, zu der es ein passendes Tool gibt, nutzt du immer die Antworten von Tool-Calls. Du nutzt dafür keine vorherigen Chat-Informationen.
+Du hast Zugriff auf folgende Tools:
     
-    Du hast Zugriff auf folgende Tools:
-    
-
 
 {json.dumps(dict_tools, indent=2)}
 
 
 🔧 **Tools aufrufen**  
+Überlege erst welche Tools brauchst. Schreibe dann alle Tool-Calls untereinander auf.
+Verwende dabei immer EXAKT dieses Format für die Tool-Calls:
 
-Sammle alle Tools die du aufrufen willst in einer Liste.
-
-Verwende dann immer EXAKT dieses Format für die Tool-Calls:
 
 ```tool
 {{
@@ -69,13 +65,14 @@ etc.
 
 📋 Regeln für Tool-Nutzung:
 1. Verwende Tools nur wenn nötig
-2. Verwende das EXAKTE Format für Tool-Calls
+2. Verwende das EXAKTE Format für Tool-Calls, du bist extrem penibel und gut darin
 3. Fülle alle erforderlichen Parameter aus
-4. Nach Tool-Calls, warte immer auf das Ergebnis bevor du antwortest
+4. Nach den ganzen Tool-Calls warte immer auf das Ergebnis, bevor du antwortest
 
 
-WICHTIG: Warte immer auf das Ergebnis des Tool-Calls, bevor du antwortest. Antworte nicht, bevor du die Ergebnisse der Tools erhalten hast.
+WICHTIG: Warte immer auf das Ergebnis der gesamten Tool-Calls, bevor du antwortest. Antworte nicht, wenn du noch keine Ergebnisse der Tools erhalten hast.
 
+Wenn du die Tool-Ergebnisse bekommen hast, antwortest du normal auf Basis der Ergebnisse.
 """
 
 async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]]):
@@ -96,12 +93,14 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
             system_prompt = get_tools_system_prompt(mcp_tools)
 
+            history = remove_tool_placeholders_from_history(history)
+
 
             while True:
 
                 print(history)
 
-                response = await call_ollama(history, f"{instructions}\n{system_prompt}")
+                response = await call_ollama(history, f"{instructions}\n\n{system_prompt}")
 
                 tool_calls, cleaned_response = extract_tool_calls(response)
 
@@ -121,7 +120,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                         result = await session.call_tool(name, arguments)
                         tool_results.append(f"{{'{name}': '{result.content[0].text}'}}")
 
-                    tool_results_message = "\n".join(tool_results)
+                    tool_results_message = ",\n".join(tool_results)
 
                     print(tool_results_message)
 
