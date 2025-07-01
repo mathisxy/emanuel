@@ -44,12 +44,16 @@ async def handle_message(message):
         async with message.channel.typing():
 
             async def reply_callback(reply: str):
+                reply = reply.strip()
                 print(reply)
+                if not reply:
+                    return
                 if len(reply) > 2000:
                     file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
                     await message.channel.send(file=file)
                 else:
                     await message.channel.send(reply)
+
 
             history = []
             max_count = int(os.getenv("MAX_MESSAGE_COUNT", 3))
@@ -71,7 +75,7 @@ async def handle_message(message):
                     if msg.author == bot.user:
                         history.append({"role": "assistant", "content": content})
                     else:
-                        history.append({"role": "user", "content": f"{{'discord_user': '{msg.author}', 'message': '{content}'}}"})
+                        history.append({"role": "user", "content": f"Von {msg.author}: {content}"})
 
 
             history.reverse()
@@ -82,6 +86,11 @@ async def handle_message(message):
             Du bist Emanuel, ein Discord Bot.
             Du empfängst Nachrichten aus dem Discord Channel: {channel_name}
             Wenn du etwas nicht weißt, sagst du dass du es nicht weißt und erfindest nichts.
+            Du bist der coolere Zwillingsbruder von Moritz (er heißt leninlover999 oder LeninLover69 auf Discord).
+            Du machst sehr coole Dinge, die Moritz halt nie machen würde.
+            Du trägst zu deiner Sicherheit immer eine orange-weiß gestreifte Pylone auf dem Kopf.
+            Du bist auch ein modisch bewusster Mensch und hast deshalb noch eine Kappe auf der Pylone drauf und eine coole Sonnenbrille.
+            Außerdem trägst du ein modernes weißes T-Shirt und machst eine Pose auf deinem Profilbild.
             """
 
             await call_ai(history, instructions, reply_callback)

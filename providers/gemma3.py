@@ -4,8 +4,9 @@ import os
 import re
 from collections.abc import Callable
 
+from discord.ext.commands.core import hooked_wrapped_callback
 from ollama import AsyncClient
-from typing import List, Dict, Awaitable
+from typing import List, Dict, Awaitable, Tuple
 
 from mcp import ClientSession, Tool
 from mcp.client.streamable_http import streamablehttp_client
@@ -31,30 +32,50 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
-    return f"""Du bist hilfreich. Du hast Zugang zu folgenden Tools:
+    return f"""Du bist hilfreich. 
+    
+    Für das beantworten von Fragen der User, zu der es ein passendes Tool gibt, nutzt du immer die Antworten von Tool-Calls. Du nutzt dafür keine vorherigen Chat-Informationen.
+    
+    Du hast Zugriff auf folgende Tools:
+    
 
-{json.dumps(dict_tools)}
+
+{json.dumps(dict_tools, indent=2)}
 
 
-🔧 WICHTIG: Wenn du ein oder mehrere Tools verwenden möchtest, antworte EXAKT in diesem Format:
+🔧 **Tools aufrufen**  
+
+Sammle alle Tools die du aufrufen willst in einer Liste.
+
+Verwende dann immer EXAKT dieses Format für die Tool-Calls:
 
 ```tool
 {{
-  "name": "tool_name",
+  "name": "tool1",
   "arguments": {{
-    "parameter1": "wert1",
-    "parameter2": "wert2"
+    "parameter1": "wert1"
   }}
 }}
 ```
+```tool
+{{
+  "name": "tool2",
+  "arguments": {{}}
+}}
+```
+etc.
 
-Nach einem Tool-Aufruf wirst du das Ergebnis erhalten und kannst normal antworten.
+
 
 📋 Regeln für Tool-Nutzung:
 1. Verwende Tools nur wenn nötig
 2. Verwende das EXAKTE Format für Tool-Calls
 3. Fülle alle erforderlichen Parameter aus
-4. Nach dem Tool-Call, warte auf das Ergebnis bevor du antwortest
+4. Nach Tool-Calls, warte immer auf das Ergebnis bevor du antwortest
+
+
+WICHTIG: Warte immer auf das Ergebnis des Tool-Calls, bevor du antwortest. Antworte nicht, bevor du die Ergebnisse der Tools erhalten hast.
+
 """
 
 async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]]):
@@ -82,11 +103,10 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                 response = await call_ollama(history, f"{instructions}\n{system_prompt}")
 
-                tool_calls = extract_tool_calls(response)
+                tool_calls, cleaned_response = extract_tool_calls(response)
 
                 if tool_calls:
 
-                    print("TOOL CALLS")
                     print(response)
 
                     tool_results = []
@@ -99,46 +119,57 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                         arguments = tool_call.get("arguments", {})
 
                         result = await session.call_tool(name, arguments)
-                        tool_results.append(f"Tool {name} Ergebnis: {result.content}")
+                        tool_results.append(f"{{'{name}': '{result.content[0].text}'}}")
 
-                    tool_results_message = "\n\n".join(tool_results)
+                    tool_results_message = "\n".join(tool_results)
 
                     print(tool_results_message)
 
-                    pattern = r'```tool(.*?)```'
-                    cleaned_response = re.sub(pattern, '', response, flags=re.DOTALL)
-                    if cleaned_response:
-                        await reply_callback(cleaned_response.strip())
+                    await reply_callback(cleaned_response.strip())
 
                     history = history + [
                         {"role": "assistant", "content": response},
-                        {"role": "system", "content": f"Hier sind die Toolergebnisse: {tool_results_message}"}
+                        {"role": "system", "content": f"{{'tool_results': [{tool_results_message}]}}"}
                     ]
+
+                    print(history)
 
                 else:
                     await reply_callback(response)
                     return
 
 
-def extract_tool_calls(text: str) -> List[Dict]:
-
+def extract_tool_calls(text: str) -> Tuple[List[Dict], str]:
     tool_calls = []
 
     pattern = r'```tool(.*?)```'
-    matches = re.findall(pattern, text, re.DOTALL)
 
-    for match in matches:
+    def replace_match(match_obj):
+        raw_json = match_obj.group(1).strip()
         try:
-            # Parse das JSON
-            tool_call_data = json.loads(match.strip())
+            tool_call_data = json.loads(raw_json)
             tool_calls.append(tool_call_data)
-        except json.JSONDecodeError as e:
-            print(f"Fehler beim Parsen des Tool-Calls: {e}")
-            continue
+            tool_name = tool_call_data.get("name", "Unbekanntes Tool")
+        except json.JSONDecodeError:
+            tool_name = "Ungültiges Tool"
+        return f"```🔧 {tool_name}```"
 
-    return tool_calls
+    cleaned_response = re.sub(pattern, replace_match, text, flags=re.DOTALL)
+
+    return tool_calls, cleaned_response
 
 
+def remove_tool_placeholders_from_history(history: List[Dict]) -> List[Dict]:
+    pattern = r'```🔧.*?```'
+    cleaned_history = []
+
+    for message in history:
+        content = message.get("content", "")
+        # Entferne alle vorkommenden Tool-Platzhalter im content
+        cleaned_content = re.sub(pattern, '', content, flags=re.DOTALL).strip()
+        cleaned_history.append({**message, "content": cleaned_content})
+
+    return cleaned_history
 
 ollama_client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
 ollama_lock = asyncio.Lock()
@@ -148,6 +179,7 @@ async def call_ollama(history: List[Dict], instructions: str) -> str:
 
     #ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
+    temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
 
     # Baue den Prompt aus Historie und Instruktionen
     messages = [{"role": "system", "content": instructions}]
@@ -164,7 +196,10 @@ async def call_ollama(history: List[Dict], instructions: str) -> str:
                 model=model_name,
                 messages=messages,
                 stream=False,
-                keep_alive='10m'
+                keep_alive='10m',
+                options={
+                    'temperature': temperature
+                }
             )
 
             return response['message']['content']
