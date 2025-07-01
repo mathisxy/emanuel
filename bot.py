@@ -1,14 +1,11 @@
 import importlib
 import io
-import traceback
 from typing import List, Dict
 
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-from mistralai import Mistral
-from mistralai_azure import Function
 
 load_dotenv()
 
@@ -24,24 +21,25 @@ intents.messages = True  # explizit hinzufügen
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-async def call_ai(history: List[Dict], instructions: str, provider: str, reply_callback) -> str:
-    """Lädt dynamisch den AI-Provider und ruft ihn auf"""
+module = importlib.import_module(f"providers.{ai}")
+
+
+async def call_ai(history: List[Dict], instructions: str, reply_callback) -> str:
     try:
-        # Importiere das Modul basierend auf dem Provider-Namen
-        module = importlib.import_module(f"providers.{provider}")
-        # Rufe die call_ai Funktion des Moduls auf
         return await module.call_ai(history, instructions, reply_callback)
-    except ImportError:
-        return f"AI-Provider '{provider}' nicht gefunden!"
     except Exception as e:
         return f"Fehler beim AI-Aufruf: {str(e)}"
+
+
+def is_relevant_message(message: discord.Message) -> bool:
+    return bot.user in message.mentions or isinstance(message.channel, discord.DMChannel)
 
 
 async def handle_message(message):
     if message.author == bot.user:
         return
 
-    if bot.user in message.mentions:
+    if is_relevant_message(message):
 
         async with message.channel.typing():
 
@@ -60,7 +58,7 @@ async def handle_message(message):
                 if len(history) >= max_count:
                     break
 
-                if not msg.author == bot.user and not bot.user in msg.mentions:
+                if msg.author != bot.user and not is_relevant_message(msg):
                     continue
 
                 content = msg.clean_content
@@ -78,7 +76,7 @@ async def handle_message(message):
 
             history.reverse()
 
-            channel_name = message.channel.name if hasattr(message.channel, "name") else f"DM mit {message.author}"
+            channel_name = f"DM mit {message.author}" if isinstance(message.channel, discord.DMChannel) else message.channel.name
 
             instructions = f"""
             Du bist Emanuel, ein Discord Bot.
@@ -86,7 +84,7 @@ async def handle_message(message):
             Wenn du etwas nicht weißt, sagst du dass du es nicht weißt und erfindest nichts.
             """
 
-            await call_ai(history, instructions, ai, reply_callback)
+            await call_ai(history, instructions, reply_callback)
 
 
 

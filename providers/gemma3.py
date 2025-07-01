@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -30,14 +31,14 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
-    return f"""Du bist ein hilfreicher Assistent mit Zugang zu folgenden Tools:
+    return f"""Du bist hilfreich. Du hast Zugang zu folgenden Tools:
 
 {json.dumps(dict_tools)}
 
-WICHTIG: Wenn du ein Tool verwenden möchtest, antworte EXAKT in diesem Format:
 
+🔧 WICHTIG: Wenn du ein oder mehrere Tools verwenden möchtest, antworte EXAKT in diesem Format:
 
-<TOOL_CALL>
+```tool
 {{
   "name": "tool_name",
   "arguments": {{
@@ -45,17 +46,15 @@ WICHTIG: Wenn du ein Tool verwenden möchtest, antworte EXAKT in diesem Format:
     "parameter2": "wert2"
   }}
 }}
-</TOOL_CALL>
-
+```
 
 Nach einem Tool-Aufruf wirst du das Ergebnis erhalten und kannst normal antworten.
 
-Regeln:
+📋 Regeln für Tool-Nutzung:
 1. Verwende Tools nur wenn nötig
 2. Verwende das EXAKTE Format für Tool-Calls
 3. Fülle alle erforderlichen Parameter aus
 4. Nach dem Tool-Call, warte auf das Ergebnis bevor du antwortest
-5. Du kannst mehrere Tool-Calls in einer Nachricht machen
 """
 
 async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]]):
@@ -106,7 +105,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                     print(tool_results_message)
 
-                    pattern = r'<TOOL_CALL>.*?</TOOL_CALL>'
+                    pattern = r'```tool(.*?)```'
                     cleaned_response = re.sub(pattern, '', response, flags=re.DOTALL)
                     if cleaned_response:
                         await reply_callback(cleaned_response.strip())
@@ -125,7 +124,7 @@ def extract_tool_calls(text: str) -> List[Dict]:
 
     tool_calls = []
 
-    pattern = r'<TOOL_CALL>(.*?)</TOOL_CALL>'
+    pattern = r'```tool(.*?)```'
     matches = re.findall(pattern, text, re.DOTALL)
 
     for match in matches:
@@ -139,28 +138,37 @@ def extract_tool_calls(text: str) -> List[Dict]:
 
     return tool_calls
 
+
+
+ollama_client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
+ollama_lock = asyncio.Lock()
+
+
 async def call_ollama(history: List[Dict], instructions: str) -> str:
-    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+    #ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
 
     # Baue den Prompt aus Historie und Instruktionen
     messages = [{"role": "system", "content": instructions}]
     messages.extend(history)
 
-    try:
-        # Erstelle Ollama Client mit optionaler Host-Konfiguration
-        client = AsyncClient(host=ollama_url)
+    async with ollama_lock:
 
-        # Rufe das Modell auf
-        response = await client.chat(
-            model=model_name,
-            messages=messages,
-            stream=False,
-            keep_alive='10m'
-        )
+        try:
+            # Erstelle Ollama Client mit optionaler Host-Konfiguration
+            #client = AsyncClient(host=ollama_url)
 
-        return response['message']['content']
+            # Rufe das Modell auf
+            response = await ollama_client.chat(
+                model=model_name,
+                messages=messages,
+                stream=False,
+                keep_alive='10m'
+            )
 
-    except Exception as e:
-        return f"Ollama Fehler: {str(e)}"
+            return response['message']['content']
+
+        except Exception as e:
+            return f"Ollama Fehler: {str(e)}"
 
