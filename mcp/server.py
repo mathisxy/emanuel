@@ -1,11 +1,24 @@
 import random
 import socket
 import subprocess
+from enum import Enum
+from typing import List, LiteralString, Literal
 
 from fastmcp import FastMCP
 
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
+
+class Servers(Enum):
+    minecraft = "minecraft_vanilla",
+    drehmal = "minecraft_drehmal",
+    enshrouded = "enshrouded",
+
+class ServerOperations(Enum):
+    status = "status",
+    start = "start",
+    stop = "stop",
+    restart = "restart"
 
 @mcp.tool()
 def roll_dice(sides: int = 6) -> int:
@@ -19,130 +32,49 @@ def roll_dice(sides: int = 6) -> int:
     return result
 
 @mcp.tool()
-def get_minecraft_vanilla_server_status() -> str:
-    """Gibt den aktuellen Online Status des *Minecraft Vanilla Servers* zurück.
-    Serveradresse: mathis.party:25565"""
-    result = subprocess.run(
-        ['systemctl', 'is-active', 'minecraft'],
-        capture_output=True,
-        text=True,
-        timeout=5
-    )
-    return "online" if result.stdout.strip() == "active" else "offline"
+def control_game_server(
+        servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "enshrouded"]],
+        operation: Literal["status", "start", "stop", "restart"]
+) -> List[str]:
+    """Gibt online Status zurück, startet, stoppt oder startet Game-Server neu.
+Server:
+ - Minecraft Vanilla: mathis.party:25565
+ - Minecraft Drehmal: mathis.party:25566
+ - Enshrouded: Dynamisch
+ """
 
-@mcp.tool()
-def start_minecraft_vanilla_server() -> str:
-    """Startet den Minecraft Vanilla Server"""
-    result = subprocess.run(
-        ['sudo', 'service', 'minecraft', 'start'],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0:
-        return "Wird gestartet"
-    else:
-        return f"Fehler beim Starten: {result.stderr.strip()}"
+    output = []
 
-@mcp.tool()
-def stop_minecraft_vanilla_server() -> str:
-    """Stoppt den Minecraft Vanilla Server"""
-    result = subprocess.run(
-        ['sudo', 'service', 'minecraft', 'stop'],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0:
-        return "Wird gestoppt"
-    else:
-        return f"Fehler beim Stoppen: {result.stderr.strip()}"
+    for server in servers:
+        if operation == "status":
 
-@mcp.tool()
-def restart_minecraft_vanilla_server() -> str:
-    """Startet den Minecraft Vanilla Server neu"""
-    result = subprocess.run(
-        ['sudo', 'service', 'minecraft', 'restart'],
-        capture_output=True,
-        text=True,
-        timeout=15
-    )
-    if result.returncode == 0:
-        return "Wird neu gestartet"
-    else:
-        return f"Fehler beim Neustarten: {result.stderr.strip()}"
+            result = subprocess.run(
+                ['systemctl', 'is-active', server],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            output.append(f"{server} ist online" if result.stdout.strip() == "active" else f"{server} ist offline")
 
+        else:
+            result = subprocess.run(
+                ['sudo', 'service', server, operation],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
 
-@mcp.tool()
-def get_minecraft_drehmal_server_status() -> str:
-    """Gibt den aktuellen Online Status des *Minecraft Drehmal Adventure Servers* zurück.
-    Serveradresse: mathis.party:25566"""
-    result = subprocess.run(
-        ['systemctl', 'is-active', 'drehmal'],
-        capture_output=True,
-        text=True,
-        timeout=5
-    )
-    return "online" if result.stdout.strip() == "active" else "offline"
+            if result.returncode == 0:
+                output.append(f"{server} {operation} erfolgreich")
+            else:
+                output.append(f"{server} {operation} fehlgeschlagen: {result.stderr.strip()}")
 
-@mcp.tool()
-def start_minecraft_drehmal_server() -> str:
-    """Startet den Minecraft Drehmal Adventure Server"""
-    result = subprocess.run(
-        ['sudo', 'service', 'drehmal', 'start'],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0:
-        return "Wird gestartet"
-    else:
-        return f"Fehler beim Starten: {result.stderr.strip()}"
+    return output
 
-@mcp.tool()
-def stop_minecraft_drehmal_server() -> str:
-    """Stoppt den Minecraft Drehmal Adventure Server"""
-    result = subprocess.run(
-        ['sudo', 'service', 'drehmal', 'stop'],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0:
-        return "Wird gestoppt"
-    else:
-        return f"Fehler beim Stoppen: {result.stderr.strip()}"
-
-@mcp.tool()
-def restart_minecraft_drehmal_server() -> str:
-    """Startet den Minecraft Drehmal Adventure Server neu"""
-    result = subprocess.run(
-        ['sudo', 'service', 'drehmal', 'restart'],
-        capture_output=True,
-        text=True,
-        timeout=15
-    )
-    if result.returncode == 0:
-        return "Wird neu gestartet"
-    else:
-        return f"Fehler beim Neustarten: {result.stderr.strip()}"
-
-@mcp.tool()
-def get_enshrouded_server_status() -> str:
-    """Gibt den aktuellen Online Status des *Enshrouded Servers* zurück.
-     Falls der Server online ist, aber im Spiel nicht auftaucht, schlage ein Server Update vor.
-     """
-    result = subprocess.run(
-        ['systemctl', 'is-active', 'enshrouded'],
-        capture_output=True,
-        text=True,
-        timeout=5
-    )
-    return "online" if result.stdout.strip() == "active" else "offline"
 
 @mcp.tool()
 def get_enshrouded_server_address() -> str:
-    """Gibt die aktuelle IPv4-Adresse des Enshrouded Servers mit Port zurück, für das manuelle Verbinden."""
+    """IPv4:Port des Enshrouded Servers, fürs manuelle Verbinden."""
 
     try:
         ip_address = socket.gethostbyname("mathis.party")
@@ -152,52 +84,8 @@ def get_enshrouded_server_address() -> str:
 
 
 @mcp.tool()
-def start_enshrouded_server() -> str:
-    """Startet den Enshrouded Server"""
-    result = subprocess.run(
-        ['sudo', 'service', 'enshrouded', 'start'],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0:
-        return "Wird gestartet"
-    else:
-        return f"Fehler beim Starten: {result.stderr.strip()}"
-
-@mcp.tool()
-def stop_enshrouded_server() -> str:
-    """Stoppt den Enshrouded Server"""
-    result = subprocess.run(
-        ['sudo', 'service', 'enshrouded', 'stop'],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
-    if result.returncode == 0:
-        return "Wird gestoppt"
-    else:
-        return f"Fehler beim Stoppen: {result.stderr.strip()}"
-
-@mcp.tool()
-def restart_enshrouded_server() -> str:
-    """Startet den Enshrouded Server neu"""
-    result = subprocess.run(
-        ['sudo', 'service', 'enshrouded', 'restart'],
-        capture_output=True,
-        text=True,
-        timeout=15
-    )
-    if result.returncode == 0:
-        return "Wird neu gestartet"
-    else:
-        return f"Fehler beim Neustarten: {result.stderr.strip()}"
-
-
-@mcp.tool()
 def update_enshrouded_server() -> str:
-    """Updated den Enshrouded Server.
-    Er wird gestoppt, upgedatet und dann wieder gestartet."""
+    """Updated den Enshrouded Server"""
 
     cmd = (
         "sudo service enshrouded stop && "
@@ -226,6 +114,7 @@ def update_enshrouded_server() -> str:
         return "Timeout: Das Update hat zu lange gedauert und wurde abgebrochen."
     except Exception as e:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
+
 
 # Server erstellen und starten
 if __name__ == "__main__":

@@ -32,19 +32,16 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
-    return f"""Du bist hilfreich. 
-Für das beantworten von Fragen der User, zu der es ein passendes Tool gibt, nutzt du immer nur die Antworten von Tool-Calls. Du nutzt dafür keine vorherigen Chat-Nachrichten.
-    
+    return f"""Du bist hilfreich.
+Du machst keine zu langen Antworten.
 Du hast Zugriff auf folgende Tools:
     
-
-{json.dumps(dict_tools, indent=2)}
-
+{json.dumps(dict_tools, separators=(',', ':'))}
 
 🔧 **Tools aufrufen**
-Überlege erst welche Tools brauchst. Schreibe dann alle Tool-Calls untereinander auf.
-Verwende dabei immer EXAKT dieses Format für die Tool-Calls:
-
+Sammle als erstes ALLE Tools, die du verwenden willst.
+Schreibe dann ALLE Tool-Calls untereinander auf.
+Verwende immer EXAKT dieses JSON-Format für die Tool-Calls:
 
 ```tool
 {{
@@ -61,19 +58,32 @@ Verwende dabei immer EXAKT dieses Format für die Tool-Calls:
 }}
 ```
 etc.
-
-
-📋 Regeln für Tool-Nutzung:
-1. Verwende Tools nur wenn nötig
-2. Verwende das EXAKTE Format für Tool-Calls, du bist extrem penibel und gut darin
-3. Fülle alle erforderlichen Parameter aus
-4. Nach den ganzen Tool-Calls warte immer auf das Ergebnis, bevor du antwortest
-
-
-WICHTIG: Warte immer auf das Ergebnis der gesamten Tool-Calls, bevor du antwortest. Antworte nicht, wenn du noch keine Ergebnisse der Tools erhalten hast.
-
-Wenn du die Tool-Ergebnisse bekommen hast, antwortest du normal auf Basis der Ergebnisse.
+ 
+ 
+💡 **Erklärung wie es funktioniert**
+Deine Antworten werden nach dem regex r'```tool(.*?)```' durchsucht.
+Alle Treffer werden mit JSON geparst und dann aus der Antwort entfernt.
+Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte aufgerufen.
+Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit gleich nochmal aufgerufen.
+Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 """
+
+#WICHTIG: Warte immer auf das Ergebnis der gesamten Tool-Calls, bevor du antwortest. Antworte nicht, wenn du noch keine Ergebnisse der Tools erhalten hast.
+
+#Wenn du die Tool-Ergebnisse bekommen hast, antwortest du normal auf Basis der Ergebnisse.
+
+#📋 Regeln für Tool-Nutzung:
+#1. Verwende Tools immer dann wenn nötig
+#2. Verwende das EXAKTE Format für Tool-Calls
+#3. Fülle alle erforderlichen Parameter aus
+#4. Nach den ganzen Tool-Calls warte immer auf das Ergebnis, bevor du antwortest
+
+
+#Es ist wichtig, dass du:
+#1. Immer zuerst die Tools nutzt, um Informationen zu bekommen. 🛠️
+#2. Immer nur die Ergebnisse der Tools in deiner Antwort verwendest. 💬
+#3. Dich nicht an ältere Nachrichten anlehnst, sondern immer "frisch" antwortest. 🆕
+
 
 async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]]):
 
@@ -93,10 +103,12 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
             system_prompt = get_tools_system_prompt(mcp_tools)
 
+            print(system_prompt)
+
             history = remove_tool_placeholders_from_history(history)
 
-            #enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
-            #print(len(enc.encode(system_prompt)))
+            enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
+            print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
             for i in range(7):
 
@@ -137,7 +149,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                 else:
                     await reply_callback(response)
-                    return
+                    break
 
 
 def extract_tool_calls(text: str) -> Tuple[List[Dict], str]:
@@ -167,11 +179,13 @@ def remove_tool_placeholders_from_history(history: List[Dict]) -> List[Dict]:
     for message in history:
         content = message.get("content", "")
         # Entferne alle vorkommenden Tool-Platzhalter im content
+        replacement = "```[SYSTEM] Hier hast du einen Tool Call gemacht, der aus der Nachricht entfernt wurde```"
         cleaned_content = re.sub(pattern, '', content, flags=re.DOTALL).strip()
         cleaned_history.append({**message, "content": cleaned_content})
 
     return cleaned_history
 
+print("NEW OLLAMA CLIENT")
 ollama_client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
 ollama_lock = asyncio.Lock()
 
@@ -180,6 +194,7 @@ async def call_ollama(history: List[Dict], instructions: str) -> str:
 
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
+    keep_alive = os.getenv("OLLAMA_KEEP_ALIVE", "10m")
 
     # Baue den Prompt aus Historie und Instruktionen
     messages = [{"role": "system", "content": instructions}]
@@ -194,7 +209,7 @@ async def call_ollama(history: List[Dict], instructions: str) -> str:
                 model=model_name,
                 messages=messages, #[{"role": "user", "content": "test"}],
                 stream=False,
-                keep_alive=-1,
+                keep_alive=keep_alive,
                 options={
                     'temperature': temperature
                 }
