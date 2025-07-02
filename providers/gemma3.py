@@ -4,6 +4,7 @@ import os
 import re
 from collections.abc import Callable
 
+import tiktoken
 from ollama import AsyncClient
 from typing import List, Dict, Awaitable, Tuple
 
@@ -40,7 +41,7 @@ Du hast Zugriff auf folgende Tools:
 {json.dumps(dict_tools, indent=2)}
 
 
-🔧 **Tools aufrufen**  
+🔧 **Tools aufrufen**
 Überlege erst welche Tools brauchst. Schreibe dann alle Tool-Calls untereinander auf.
 Verwende dabei immer EXAKT dieses Format für die Tool-Calls:
 
@@ -60,7 +61,6 @@ Verwende dabei immer EXAKT dieses Format für die Tool-Calls:
 }}
 ```
 etc.
-
 
 
 📋 Regeln für Tool-Nutzung:
@@ -95,8 +95,10 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
             history = remove_tool_placeholders_from_history(history)
 
+            #enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
+            #print(len(enc.encode(system_prompt)))
 
-            while True:
+            for i in range(7):
 
                 print(history)
 
