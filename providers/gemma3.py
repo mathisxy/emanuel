@@ -176,7 +176,6 @@ ollama_lock = asyncio.Lock()
 
 async def call_ollama(history: List[Dict], instructions: str) -> str:
 
-    #ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
 
@@ -187,15 +186,13 @@ async def call_ollama(history: List[Dict], instructions: str) -> str:
     async with ollama_lock:
 
         try:
-            # Erstelle Ollama Client mit optionaler Host-Konfiguration
-            #client = AsyncClient(host=ollama_url)
 
             # Rufe das Modell auf
             response = await ollama_client.chat(
                 model=model_name,
-                messages=messages,
+                messages=messages, #[{"role": "user", "content": "test"}],
                 stream=False,
-                keep_alive='10m',
+                keep_alive=-1,
                 options={
                     'temperature': temperature
                 }

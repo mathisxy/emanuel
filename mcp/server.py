@@ -21,7 +21,7 @@ def roll_dice(sides: int = 6) -> int:
 @mcp.tool()
 def get_minecraft_vanilla_server_status() -> str:
     """Gibt den aktuellen Online Status des *Minecraft Vanilla Servers* zurück.
-    Der Server läuft über die Adresse: mathis.party:25565"""
+    Serveradresse: mathis.party:25565"""
     result = subprocess.run(
         ['systemctl', 'is-active', 'minecraft'],
         capture_output=True,
@@ -40,7 +40,7 @@ def start_minecraft_vanilla_server() -> str:
         timeout=10
     )
     if result.returncode == 0:
-        return "Server wird gestartet"
+        return "Wird gestartet"
     else:
         return f"Fehler beim Starten: {result.stderr.strip()}"
 
@@ -54,7 +54,7 @@ def stop_minecraft_vanilla_server() -> str:
         timeout=10
     )
     if result.returncode == 0:
-        return "Server wird gestoppt"
+        return "Wird gestoppt"
     else:
         return f"Fehler beim Stoppen: {result.stderr.strip()}"
 
@@ -68,7 +68,7 @@ def restart_minecraft_vanilla_server() -> str:
         timeout=15
     )
     if result.returncode == 0:
-        return "Server wird neu gestartet"
+        return "Wird neu gestartet"
     else:
         return f"Fehler beim Neustarten: {result.stderr.strip()}"
 
@@ -76,7 +76,7 @@ def restart_minecraft_vanilla_server() -> str:
 @mcp.tool()
 def get_minecraft_drehmal_server_status() -> str:
     """Gibt den aktuellen Online Status des *Minecraft Drehmal Adventure Servers* zurück.
-    Der Server läuft über die Adresse: mathis.party:25566"""
+    Serveradresse: mathis.party:25566"""
     result = subprocess.run(
         ['systemctl', 'is-active', 'drehmal'],
         capture_output=True,
@@ -95,7 +95,7 @@ def start_minecraft_drehmal_server() -> str:
         timeout=10
     )
     if result.returncode == 0:
-        return "Server wird gestartet"
+        return "Wird gestartet"
     else:
         return f"Fehler beim Starten: {result.stderr.strip()}"
 
@@ -109,7 +109,7 @@ def stop_minecraft_drehmal_server() -> str:
         timeout=10
     )
     if result.returncode == 0:
-        return "Server wird gestoppt"
+        return "Wird gestoppt"
     else:
         return f"Fehler beim Stoppen: {result.stderr.strip()}"
 
@@ -123,7 +123,7 @@ def restart_minecraft_drehmal_server() -> str:
         timeout=15
     )
     if result.returncode == 0:
-        return "Server wird neu gestartet"
+        return "Wird neu gestartet"
     else:
         return f"Fehler beim Neustarten: {result.stderr.strip()}"
 
@@ -161,7 +161,7 @@ def start_enshrouded_server() -> str:
         timeout=10
     )
     if result.returncode == 0:
-        return "Server wird gestartet"
+        return "Wird gestartet"
     else:
         return f"Fehler beim Starten: {result.stderr.strip()}"
 
@@ -175,7 +175,7 @@ def stop_enshrouded_server() -> str:
         timeout=10
     )
     if result.returncode == 0:
-        return "Server wird gestoppt"
+        return "Wird gestoppt"
     else:
         return f"Fehler beim Stoppen: {result.stderr.strip()}"
 
@@ -189,7 +189,7 @@ def restart_enshrouded_server() -> str:
         timeout=15
     )
     if result.returncode == 0:
-        return "Server wird neu gestartet"
+        return "Wird neu gestartet"
     else:
         return f"Fehler beim Neustarten: {result.stderr.strip()}"
 
@@ -197,8 +197,7 @@ def restart_enshrouded_server() -> str:
 @mcp.tool()
 def update_enshrouded_server() -> str:
     """Updated den Enshrouded Server.
-    Er wird gestoppt, upgedatet und dann wieder gestartet.
-    """
+    Er wird gestoppt, upgedatet und dann wieder gestartet."""
 
     cmd = (
         "sudo service enshrouded stop && "
