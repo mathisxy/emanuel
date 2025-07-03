@@ -3,6 +3,7 @@ import io
 from typing import List, Dict
 
 import discord
+import pytz
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
@@ -75,7 +76,7 @@ async def handle_message(message):
                     if msg.author == bot.user:
                         history.append({"role": "assistant", "content": content})
                     else:
-                        history.append({"role": "user", "content": f"Von {msg.author} um {msg.created_at.strftime("%d.%m.%Y %H:%M:%S")}: {content}"})
+                        history.append({"role": "user", "content": f"{msg.author} am {msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%d.%m.%Y %H:%M:%S")}: {content}"})
 
 
             history.reverse()

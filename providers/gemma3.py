@@ -38,9 +38,12 @@ Du hast Zugriff auf folgende Tools:
     
 {json.dumps(dict_tools, separators=(',', ':'))}
 
+Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist.
+
+
 🔧 **Tools aufrufen**
 Sammle als erstes ALLE Tools, die du verwenden willst.
-Schreibe dann ALLE Tool-Calls untereinander auf.
+Schreibe dann ALLE gesammelten Tool-Calls untereinander auf.
 Verwende immer EXAKT dieses JSON-Format für die Tool-Calls:
 
 ```tool
@@ -61,10 +64,10 @@ etc.
  
  
 💡 **Erklärung wie es funktioniert**
-Deine Antworten werden nach dem regex r'```tool(.*?)```' durchsucht.
-Alle Treffer werden mit JSON geparst und dann aus der Antwort entfernt.
+Deine Antworten werden nach regex r'```tool(.*?)```' durchsucht.
+Alle Treffer werden mit JSON geparst und dann aus der Antwort ausgeschnitten.
 Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte aufgerufen.
-Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit gleich nochmal aufgerufen.
+Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit direkt nochmal aufgerufen.
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 """
 
@@ -179,8 +182,8 @@ def remove_tool_placeholders_from_history(history: List[Dict]) -> List[Dict]:
     for message in history:
         content = message.get("content", "")
         # Entferne alle vorkommenden Tool-Platzhalter im content
-        replacement = "```[SYSTEM] Hier hast du einen Tool Call gemacht, der aus der Nachricht entfernt wurde```"
-        cleaned_content = re.sub(pattern, '', content, flags=re.DOTALL).strip()
+        replacement = "> Hier stand ein valider Tool-Call"
+        cleaned_content = re.sub(pattern, replacement, content, flags=re.DOTALL).strip()
         cleaned_history.append({**message, "content": cleaned_content})
 
     return cleaned_history
