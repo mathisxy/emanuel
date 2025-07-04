@@ -11,6 +11,7 @@ from typing import List, Dict, Awaitable, Tuple
 from mcp import ClientSession, Tool
 from mcp.client.streamable_http import streamablehttp_client
 
+
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
 
     dict_tools = []
@@ -94,25 +95,38 @@ class OllamaChat:
     client: AsyncClient
     lock: asyncio.Lock
     history: List[Dict[str, str]]
+    tokenizer: tiktoken
+
+    max_tokens = 3700
 
     def __init__(self):
 
         self.client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
         self.lock = asyncio.Lock()
         self.history = []
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
     def update_history(self, new_history: List[Dict[str, str]], instructions: str, min_overlap=1):
 
-        max_overlap_length = min(len(self.history), len(new_history))
+        history_without_tool_results = [x for x in self.history if not (x["role"] == "system" and x["content"].startswith('{"tool_results":'))]
+
+        print("HISTORY WITHOUT TOOLS")
+        print(history_without_tool_results)
+        print(new_history)
+
+        max_overlap_length = min(len(history_without_tool_results), len(new_history))
         overlap_length = None
 
         for length in range(max_overlap_length, min_overlap, -1):
-            if self.history[-length:] == new_history[:length]:
+            if history_without_tool_results[-length:] == new_history[:length]:
                 overlap_length = length
                 break
 
-        if not overlap_length: # kein overlap
+        if not overlap_length:
+            print("KEIN OVERLAP")
+            print(self.history)
+            print(new_history)
             self.history = [{"role": "system", "content": instructions}]
             self.history.extend(new_history)
         elif self.history[0] == {"role": "system", "content": instructions}:
@@ -124,8 +138,30 @@ class OllamaChat:
             self.history = [{"role": "system", "content": instructions}]
             self.history.extend(new_history)
 
+        print(self.count_tokens())
 
-ollama_clients: Dict[str, OllamaChat] = {}
+        if self.count_tokens() > self.max_tokens:
+            print("CUTTING")
+            self.history = new_history
+
+
+    def build_prompt(self, history=None) -> str:
+        if history is None:
+            history = self.history
+
+        prompt_lines = []
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            prompt_lines.append(f"{role}: {content}")
+        return "\n".join(prompt_lines)
+
+    def count_tokens(self, history=None) -> int:
+        prompt = self.build_prompt(history)
+        return len(self.tokenizer.encode(prompt))
+
+
+ollama_chat = OllamaChat()
 
 async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]], channel: str):
 
@@ -147,20 +183,18 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                 system_prompt = get_tools_system_prompt(mcp_tools)
 
-                print(system_prompt)
+                #print(system_prompt)
 
                 enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
                 print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
-                ollama_clients.setdefault(channel, OllamaChat())
+                ollama_chat.update_history(history, f"{instructions}\n\n{system_prompt}")
+
+                print(ollama_chat.history)
 
                 for i in range(7):
 
-                    ollama_clients[channel].update_history(history, f"{instructions}\n\n{system_prompt}")
-
-                    print(ollama_clients[channel].history)
-
-                    response = await call_ollama(ollama_clients[channel])
+                    response = await call_ollama(ollama_chat)
 
                     tool_calls = extract_tool_calls(response)
 
@@ -186,12 +220,12 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                         await reply_callback(response)
 
-                        ollama_clients[channel].history = ollama_clients[channel].history + [
+                        ollama_chat.history = ollama_chat.history + [
                             {"role": "assistant", "content": response},
-                            {"role": "system", "content": f"{{'tool_results': [{tool_results_message}]}}"}
+                            {"role": "system", "content": f"{{\"tool_results\": [{tool_results_message}]}}"}
                         ]
 
-                        print(ollama_clients[channel].history)
+                        print(ollama_chat.history)
 
                     else:
                         await reply_callback(response)
