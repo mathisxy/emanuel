@@ -11,7 +11,6 @@ from typing import List, Dict, Awaitable, Tuple
 from mcp import ClientSession, Tool
 from mcp.client.streamable_http import streamablehttp_client
 
-
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
 
     dict_tools = []
@@ -38,7 +37,8 @@ Du hast Zugriff auf folgende Tools:
     
 {json.dumps(dict_tools, separators=(',', ':'))}
 
-Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist.
+Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
+Nutze die Tools nur wenn nötig.
 
 
 🔧 **Tools aufrufen**
@@ -46,20 +46,21 @@ Sammle als erstes ALLE Tools, die du verwenden willst.
 Schreibe dann ALLE gesammelten Tool-Calls untereinander auf.
 Verwende immer EXAKT dieses JSON-Format für die Tool-Calls:
 
-```tool
+
+||```tool
 {{
   "name": "tool1",
   "arguments": {{
     "parameter1": "wert1"
   }}
 }}
-```
-```tool
+```||
+||```tool
 {{
   "name": "tool2",
   "arguments": {{}}
 }}
-```
+```||
 etc.
  
  
@@ -88,7 +89,45 @@ Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die
 #3. Dich nicht an ältere Nachrichten anlehnst, sondern immer "frisch" antwortest. 🆕
 
 
-async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]]):
+class OllamaChat:
+
+    client: AsyncClient
+    lock: asyncio.Lock
+    history: List[Dict[str, str]]
+
+    def __init__(self):
+
+        self.client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
+        self.lock = asyncio.Lock()
+        self.history = []
+
+
+    def update_history(self, new_history: List[Dict[str, str]], instructions: str, min_overlap=1):
+
+        max_overlap_length = min(len(self.history), len(new_history))
+        overlap_length = None
+
+        for length in range(max_overlap_length, min_overlap, -1):
+            if self.history[-length:] == new_history[:length]:
+                overlap_length = length
+                break
+
+        if not overlap_length: # kein overlap
+            self.history = [{"role": "system", "content": instructions}]
+            self.history.extend(new_history)
+        elif self.history[0] == {"role": "system", "content": instructions}:
+            self.history = self.history + new_history[overlap_length:]
+        else:
+            print("NEW INSTRUCTIONS")
+            print(self.history[0])
+            print({"role": "system", "content": instructions})
+            self.history = [{"role": "system", "content": instructions}]
+            self.history.extend(new_history)
+
+
+ollama_clients: Dict[str, OllamaChat] = {}
+
+async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]], channel: str):
 
     async with streamablehttp_client(os.getenv("MCP_SERVER_URL")) as (
             read_stream,
@@ -97,120 +136,106 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
     ):
         # Create a session using the client streams
         async with ClientSession(read_stream, write_stream) as session:
-            # Initialize the connection
 
-            await session.initialize()
+            try:
 
-            tools_response = await session.list_tools()
-            mcp_tools = tools_response.tools
+                # Initialize the connection
+                await session.initialize()
 
-            system_prompt = get_tools_system_prompt(mcp_tools)
+                tools_response = await session.list_tools()
+                mcp_tools = tools_response.tools
 
-            print(system_prompt)
+                system_prompt = get_tools_system_prompt(mcp_tools)
 
-            history = remove_tool_placeholders_from_history(history)
+                print(system_prompt)
 
-            enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
-            print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
+                enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
+                print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
-            for i in range(7):
+                ollama_clients.setdefault(channel, OllamaChat())
 
-                print(history)
+                for i in range(7):
 
-                response = await call_ollama(history, f"{instructions}\n\n{system_prompt}")
+                    ollama_clients[channel].update_history(history, f"{instructions}\n\n{system_prompt}")
 
-                tool_calls, cleaned_response = extract_tool_calls(response)
+                    print(ollama_clients[channel].history)
 
-                if tool_calls:
+                    response = await call_ollama(ollama_clients[channel])
 
-                    print(response)
+                    tool_calls = extract_tool_calls(response)
 
-                    tool_results = []
+                    if tool_calls:
 
-                    for tool_call in tool_calls:
+                        print(response)
 
-                        print(f"TOOL CALL: {tool_call.get("name")}")
+                        tool_results = []
 
-                        name = tool_call.get("name")
-                        arguments = tool_call.get("arguments", {})
+                        for tool_call in tool_calls:
 
-                        result = await session.call_tool(name, arguments)
-                        tool_results.append(f"{{'{name}': '{result.content[0].text}'}}")
+                            print(f"TOOL CALL: {tool_call.get("name")}")
 
-                    tool_results_message = ",\n".join(tool_results)
+                            name = tool_call.get("name")
+                            arguments = tool_call.get("arguments", {})
 
-                    print(tool_results_message)
+                            result = await session.call_tool(name, arguments)
+                            tool_results.append(f"{{'{name}': '{result.content[0].text}'}}")
 
-                    await reply_callback(cleaned_response.strip())
+                        tool_results_message = ",\n".join(tool_results)
 
-                    history = history + [
-                        {"role": "assistant", "content": response},
-                        {"role": "system", "content": f"{{'tool_results': [{tool_results_message}]}}"}
-                    ]
+                        print(tool_results_message)
 
-                    print(history)
+                        await reply_callback(response)
 
-                else:
-                    await reply_callback(response)
-                    break
+                        ollama_clients[channel].history = ollama_clients[channel].history + [
+                            {"role": "assistant", "content": response},
+                            {"role": "system", "content": f"{{'tool_results': [{tool_results_message}]}}"}
+                        ]
+
+                        print(ollama_clients[channel].history)
+
+                    else:
+                        await reply_callback(response)
+                        break
+
+            except Exception as e:
+                await reply_callback(f"Fehler: {e}")
 
 
-def extract_tool_calls(text: str) -> Tuple[List[Dict], str]:
+def extract_tool_calls(text: str) -> List[Dict]:
     tool_calls = []
-
     pattern = r'```tool(.*?)```'
 
-    def replace_match(match_obj):
-        raw_json = match_obj.group(1).strip()
+    matches = re.findall(pattern, text, flags=re.DOTALL)
+    for raw in matches:
+        raw_json = raw.strip()
         try:
             tool_call_data = json.loads(raw_json)
             tool_calls.append(tool_call_data)
-            tool_name = tool_call_data.get("name", "Unbekanntes Tool")
         except json.JSONDecodeError:
-            tool_name = "Ungültiges Tool"
-        return f"```🔧 {tool_name}```"
+            continue  # Falls ungültig, wird einfach übersprungen
 
-    cleaned_response = re.sub(pattern, replace_match, text, flags=re.DOTALL)
+    return tool_calls
 
-    return tool_calls, cleaned_response
-
-
-def remove_tool_placeholders_from_history(history: List[Dict]) -> List[Dict]:
-    pattern = r'```🔧.*?```'
-    cleaned_history = []
-
-    for message in history:
-        content = message.get("content", "")
-        # Entferne alle vorkommenden Tool-Platzhalter im content
-        replacement = "> Hier stand ein valider Tool-Call"
-        cleaned_content = re.sub(pattern, replacement, content, flags=re.DOTALL).strip()
-        cleaned_history.append({**message, "content": cleaned_content})
-
-    return cleaned_history
 
 print("NEW OLLAMA CLIENT")
 ollama_client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
 ollama_lock = asyncio.Lock()
 
 
-async def call_ollama(history: List[Dict], instructions: str) -> str:
+async def call_ollama(chat: OllamaChat) -> str:
 
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
     keep_alive = os.getenv("OLLAMA_KEEP_ALIVE", "10m")
 
-    # Baue den Prompt aus Historie und Instruktionen
-    messages = [{"role": "system", "content": instructions}]
-    messages.extend(history)
-
-    async with ollama_lock:
+    async with chat.lock:
 
         try:
 
             # Rufe das Modell auf
             response = await ollama_client.chat(
                 model=model_name,
-                messages=messages, #[{"role": "user", "content": "test"}],
+                messages=chat.history,
                 stream=False,
                 keep_alive=keep_alive,
                 options={

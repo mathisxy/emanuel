@@ -25,11 +25,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 module = importlib.import_module(f"providers.{ai}")
 
 
-async def call_ai(history: List[Dict], instructions: str, reply_callback) -> str:
-    try:
-        return await module.call_ai(history, instructions, reply_callback)
-    except Exception as e:
-        return f"Fehler beim AI-Aufruf: {str(e)}"
+async def call_ai(history: List[Dict], instructions: str, reply_callback, channel: str) -> str:
+    return await module.call_ai(history, instructions, reply_callback, channel)
+
 
 
 def is_relevant_message(message: discord.Message) -> bool:
@@ -45,15 +43,18 @@ async def handle_message(message):
         async with message.channel.typing():
 
             async def reply_callback(reply: str):
-                reply = reply.strip()
-                print(f"REPLY: {reply}")
-                if not reply:
-                    return
-                if len(reply) > 2000:
-                    file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
-                    await message.channel.send(file=file)
-                else:
-                    await message.channel.send(reply)
+                try:
+                    reply = reply.strip()
+                    print(f"REPLY: {reply}")
+                    if not reply:
+                        return
+                    if len(reply) > 2000:
+                        file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
+                        await message.channel.send(file=file)
+                    else:
+                        await message.channel.send(reply)
+                except Exception as e:
+                    print(e)
 
 
             history = []
@@ -95,7 +96,7 @@ async def handle_message(message):
             Du beleidigst gerne 808.808.
             """
 
-            await call_ai(history, instructions, reply_callback)
+            await call_ai(history, instructions, reply_callback, channel_name)
 
 
 
@@ -105,7 +106,7 @@ async def on_message(message: discord.Message):
         await handle_message(message)
     except Exception as e:
         print(e)
-        return f"{e}"
+        await message.reply(f"Fehler: {e}")
 
 
 
