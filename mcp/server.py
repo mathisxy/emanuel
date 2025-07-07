@@ -2,7 +2,9 @@ import random
 import socket
 import subprocess
 from enum import Enum
-from typing import List, LiteralString, Literal
+from typing import List, LiteralString, Literal, Dict
+from steam import SteamQuery
+from mcstatus import JavaServer
 
 from fastmcp import FastMCP
 
@@ -36,14 +38,14 @@ def control_game_server(
         servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "enshrouded"]],
         operation: Literal["status", "start", "stop", "restart"]
 ) -> List[str]:
-    """Gibt online Status zurück, startet, stoppt oder startet Game-Server neu.
+    """Gibt Online Status mit Spieleranzahl an, startet, stoppt oder startet Game-Server neu.
 Server:
  - Minecraft Vanilla: mathis.party:25565
  - Minecraft Drehmal: mathis.party:25566
  - Enshrouded: Dynamisch
  """
 
-    output = []
+    output: List[str] = []
 
     for server in servers:
         if operation == "status":
@@ -54,7 +56,10 @@ Server:
                 text=True,
                 timeout=5
             )
-            output.append(f"{server} ist online" if result.stdout.strip() == "active" else f"{server} ist offline")
+            if result.stdout.strip() == "active":
+                output.append(f"{server}: {_get_extended_server_info(server)}")
+            else:
+                output.append(f"{server} ist offline")
 
         else:
             result = subprocess.run(
@@ -71,16 +76,41 @@ Server:
 
     return output
 
+def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla", "minecraft_drehmal"]) -> Dict:
+    domain, port = _get_server_address(server)
 
-@mcp.tool()
-def get_enshrouded_server_address() -> str:
-    """IPv4:Port des Enshrouded Servers, fürs manuelle Verbinden."""
+    if server == "enshrouded":
+        server_obj = SteamQuery(domain, port)
+        return_dictionary = server_obj.query_server_info()
+        return {
+            "address": f"{domain}:{port}",
+            "name": return_dictionary.get("name", "unbekannt"),
+            "online": f"{return_dictionary.get("players")}/{return_dictionary.get("max_players")}"
+        }
 
-    try:
-        ip_address = socket.gethostbyname("mathis.party")
-        return f"{ip_address}:15637"
-    except socket.gaierror as e:
-        return f"Fehler bei der DNS-Auflösung von mathis.party: {str(e)}"
+    if server.startswith("minecraft_"):
+        server_obj = JavaServer.lookup(f"{domain}:{port}")
+        status = server_obj.status()
+        return {
+            "version": status.version.name,
+            "description": status.description,
+            "online": "niemand" if status.players.online == 0 else ", ".join([name.name for name in status.players.sample])
+        }
+
+
+def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal", "enshrouded"]) -> (str, int):
+    domain = "mathis.party"
+    if server == "enshrouded":
+        domain = socket.gethostbyname(domain)
+        port = 15637
+    elif server == "minecraft_vanilla":
+        port = 25565
+    elif server == "minecraft_drehmal":
+        port = 25566
+    else:
+        raise Exception("Unknown Server")
+
+    return domain, port
 
 
 @mcp.tool()

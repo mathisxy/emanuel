@@ -32,14 +32,14 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
-    return f"""Du bist hilfreich.
+    return f"""Du bist hilfreich und zuverlässig.
 Du machst keine zu langen Antworten.
 Du hast Zugriff auf folgende Tools:
     
 {json.dumps(dict_tools, separators=(',', ':'))}
 
 Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
-Nutze die Tools nur wenn nötig.
+Nutze die Tools immer nur wenn nötig.
 
 
 🔧 **Tools aufrufen**
@@ -72,22 +72,6 @@ Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte a
 Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit direkt nochmal aufgerufen.
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 """
-
-#WICHTIG: Warte immer auf das Ergebnis der gesamten Tool-Calls, bevor du antwortest. Antworte nicht, wenn du noch keine Ergebnisse der Tools erhalten hast.
-
-#Wenn du die Tool-Ergebnisse bekommen hast, antwortest du normal auf Basis der Ergebnisse.
-
-#📋 Regeln für Tool-Nutzung:
-#1. Verwende Tools immer dann wenn nötig
-#2. Verwende das EXAKTE Format für Tool-Calls
-#3. Fülle alle erforderlichen Parameter aus
-#4. Nach den ganzen Tool-Calls warte immer auf das Ergebnis, bevor du antwortest
-
-
-#Es ist wichtig, dass du:
-#1. Immer zuerst die Tools nutzt, um Informationen zu bekommen. 🛠️
-#2. Immer nur die Ergebnisse der Tools in deiner Antwort verwendest. 💬
-#3. Dich nicht an ältere Nachrichten anlehnst, sondern immer "frisch" antwortest. 🆕
 
 
 class OllamaChat:
@@ -192,7 +176,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                 print(ollama_chat.history)
 
-                for i in range(7):
+                for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
 
                     response = await call_ollama(ollama_chat)
 
