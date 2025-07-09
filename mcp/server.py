@@ -122,8 +122,8 @@ def update_enshrouded_server() -> str:
         "sudo /usr/games/steamcmd "
         "+@sSteamCmdForcePlatformType windows "
         "+force_install_dir /mnt/samsung/enshrouded-server "
-        "+login anonymous +app_update 2278520 +quit && "
-        "sudo service enshrouded start"
+        "+login anonymous +app_update 2278520 +quit" #&& "
+        #"sudo service enshrouded start"
     )
 
     try:
