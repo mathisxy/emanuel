@@ -67,44 +67,45 @@ async def handle_message(message):
                 if msg.author != bot.user and not is_relevant_message(msg):
                     continue
 
-                content = msg.clean_content
+                role = "assistant" if msg.author == bot.user else "user"
+                content = msg.clean_content if role != "user" else f"Um {msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {msg.clean_content}"
+                images = []
 
-                if not content and msg.attachments:
-                    author = "dir" if msg.author == bot.user else msg.author
-                    content = f"Eine Datei wurde gesendet von {author}: {msg.attachments[0].filename}"
+                if msg.attachments:
+                    for attachment in msg.attachments:
+                        author = "dir" if msg.author == bot.user else msg.author
 
-                if content:
-                    if msg.author == bot.user:
-                        history.append({"role": "assistant", "content": content})
-                    else:
-                        history.append({"role": "user", "content": f"Um {msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {content}"})
+                        if attachment.content_type and "image" in attachment.content_type:
+                            image_bytes = await attachment.read()
+                            image_filename = attachment.filename
 
+                            save_path = os.path.join("downloads", f"{msg.created_at.timestamp()}_{image_filename}")
+                            os.makedirs("downloads", exist_ok=True)
+
+                            with open(save_path, "wb") as f:
+                                f.write(image_bytes)
+
+                            images.append(save_path)
+
+                            #content += f"\nEin Bild wurde gesendet von {author}: {attachment.filename}"
+                        else:
+                            content += f"\nEine Datei wurde gesendet von {author}: {attachment.filename}"
+
+                if not content and not images:
+                    continue
+                    #if msg.author == bot.user:
+                    #    history.append({"role": "assistant", "content": content})
+                    #else:
+                    #    history.append({"role": "user", "content": f"Um {msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {content}"})
+
+                history.append({"role": role, "content": content, "images": images})
 
             history.reverse()
 
             channel_name = f"DM mit {message.author.display_name}" if isinstance(message.channel, discord.DMChannel) else message.channel.name
 
-            instructions = f"""Du bist Emanuel.
-Du bist im Discord Channel: {channel_name}
-Du sagst ehrlich, wenn du etwas nicht weißt, und erfindest nichts.
-Du bist der freshere Zwillingsbruder von Moritz (LeninLover69 bzw. mao7am).
-Du machst sehr coole Dinge, die Moritz halt nie machen würde.
-Du hast auch mehr Humor als Moritz und bist kreativer als Moritz.
-Du bist sehr zuvorkommend und bereitest anderen gute Laune.
-Du trägst zu deiner Sicherheit immer eine orange-weiß gestreifte Pylone auf dem Kopf.
-Du bist auch ein modisch bewusster Mensch und hast deshalb noch eine Kappe auf der Pylone drauf und eine coole Sonnenbrille.
-Außerdem trägst du ein modernes weißes T-Shirt und machst eine Pose auf deinem Profilbild.
-Du disst gerne Rafi, aber nur wenn dir wirklich mal was sehr witziges einfällt.
-
-Namensübersicht
-Moritz: LeninLover69, mao7am
-Lars: LunaRossa, xVaiders
-Juliano: Nug, Perzer
-Heike: Schokodrink, Schokoboot
-Paddy: PaddyderBOY, PaddyderBOY
-Rafi: 808, 808Bot
-Mathis: ottoAI lenghi 96 lover, mathisxy
-"""
+            instructions = f"Du bist {os.getenv("NAME")}. Du bist im Discord Channel: {channel_name}"
+            instructions += os.getenv("INSTRUCTIONS")
 
             await call_ai(history, instructions, reply_callback, channel_name)
 
