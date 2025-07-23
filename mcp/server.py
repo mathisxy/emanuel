@@ -171,39 +171,43 @@ def generate_image(prompt: str) -> fastmcp.Image:
             stderr=err,
             text=True
         )
-        print("WebUI gestartet, warte 10 Sekunden...")
 
-        # Warte z.B. 10 Sekunden (oder so lange, wie du den Server brauchst)
+        print("WebUI gestartet, warte 10 Sekunden...")
         time.sleep(13)
 
-        url = "http://localhost:7861/sdapi/v1/txt2img"
+        try:
+            url = "http://localhost:7861/sdapi/v1/txt2img"
 
-        payload = {
-            "prompt": prompt,
-            "steps": 4,
-            "width": 512,
-            "height": 512,
-            "cfg_scale": 1,
-            "distilled_cfg_scale": 3.5,
-            "sampler_name": "Euler",
-            "scheduler": "Simple"
-        }
+            payload = {
+                "prompt": prompt,
+                "steps": 4,
+                "width": 512,
+                "height": 512,
+                "cfg_scale": 1,
+                "distilled_cfg_scale": 3.5,
+                "sampler_name": "Euler",
+                "scheduler": "Simple"
+            }
 
+            response = requests.post(url, json=payload)
+            response.raise_for_status()  # optional: Fehler werfen bei HTTP-Fehler
 
-        response = requests.post(url, json=payload)
+            r = response.json()
+            image_base64 = r["images"][0]
+            image_bytes = base64.b64decode(image_base64)
+            return fastmcp.Image(
+                data=image_bytes,
+                format="png",
+            )
 
-        #torch.cuda.empty_cache()
+        finally:
+            print("Beende WebUI...")
+            process.send_signal(signal.SIGINT)
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
 
-        print("Beende WebUI...")
-        process.send_signal(signal.SIGINT)
-
-        r = response.json()
-        image_base64 = r["images"][0]
-        image_bytes = base64.b64decode(image_base64)
-        return fastmcp.Image(
-            data=image_bytes,
-            format="png",
-        )
 
 
 # Server erstellen und starten
