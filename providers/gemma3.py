@@ -1,7 +1,10 @@
 import asyncio
+import base64
 import json
+import mimetypes
 import os
 import re
+import secrets
 from collections.abc import Callable
 
 import tiktoken
@@ -11,6 +14,7 @@ from typing import List, Dict, Awaitable, Tuple
 from mcp import ClientSession, Tool
 from mcp.client.streamable_http import streamablehttp_client
 
+import GPUtil
 
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
 
@@ -39,7 +43,7 @@ Du hast Zugriff auf folgende Tools:
 {json.dumps(dict_tools, separators=(',', ':'))}
 
 Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
-Nutze die Tools immer nur wenn nötig.
+Nutze die Tools immer nur wenn nötig!
 
 
 🔧 **Tools aufrufen**
@@ -81,7 +85,8 @@ class OllamaChat:
     history: List[Dict[str, str]]
     tokenizer: tiktoken
 
-    max_tokens = 3700
+    max_tokens = 3700 if len(GPUtil.getGPUs()) == 0 else 64000
+    print(f"MAX TOKENS: {max_tokens}")
 
     def __init__(self):
 
@@ -145,9 +150,9 @@ class OllamaChat:
         return len(self.tokenizer.encode(prompt))
 
 
-ollama_chat = OllamaChat()
+ollama_chat: Dict[str, OllamaChat] = {}
 
-async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str], Awaitable[None]], channel: str):
+async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str|tuple[bytes, str]], Awaitable[None]], channel: str):
 
     async with streamablehttp_client(os.getenv("MCP_SERVER_URL")) as (
             read_stream,
@@ -158,6 +163,8 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
         async with ClientSession(read_stream, write_stream) as session:
 
             try:
+
+                chat = ollama_chat.setdefault(channel, OllamaChat())
 
                 # Initialize the connection
                 await session.initialize()
@@ -172,13 +179,13 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                 enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
                 print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
-                ollama_chat.update_history(history, f"{instructions}\n\n{system_prompt}")
+                chat.update_history(history, f"{instructions}\n\n{system_prompt}")
 
-                print(ollama_chat.history)
+                print(chat.history)
 
                 for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
 
-                    response = await call_ollama(ollama_chat)
+                    response = await call_ollama(chat)
 
                     tool_calls = extract_tool_calls(response)
 
@@ -186,7 +193,10 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                         print(response)
 
+                        await reply_callback(response)
+
                         tool_results = []
+                        tool_image_results = []
 
                         for tool_call in tool_calls:
 
@@ -196,20 +206,39 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                             arguments = tool_call.get("arguments", {})
 
                             result = await session.call_tool(name, arguments)
-                            tool_results.append(f"{{'{name}': '{result.content[0].text}'}}")
 
-                        tool_results_message = ",\n".join(tool_results)
+                            if result.content[0].type == "image":
+
+                                image_content = base64.b64decode(result.content[0].data)
+                                media_type = result.content[0].mimeType
+                                ext = mimetypes.guess_extension(media_type)
+
+                                filename = f"{secrets.token_urlsafe(8)}{ext}"
+
+                                file_info = image_content, filename
+
+                                tool_image_results.append(file_info)
+
+                                with open(os.path.join("downloads", filename), "wb") as f:
+                                    f.write(image_content)
+
+                            else:
+                                tool_results.append({name: json.loads(result.content[0].text)})
+
+                        tool_results_message = json.dumps({"tool_results": tool_results})
 
                         print(tool_results_message)
 
-                        await reply_callback(response)
-
-                        ollama_chat.history = ollama_chat.history + [
+                        chat.history = chat.history + [
                             {"role": "assistant", "content": response},
-                            {"role": "system", "content": f"{{\"tool_results\": [{tool_results_message}]}}"}
+                            {"role": "system", "content": tool_results_message}
                         ]
 
-                        print(ollama_chat.history)
+                        for image_content, filename in tool_image_results:
+                            await reply_callback((image_content, filename))
+                            chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
+
+                        print(chat.history)
 
                     else:
                         await reply_callback(response)

@@ -4,6 +4,7 @@ from typing import List, Dict
 
 import discord
 import pytz
+from attr.validators import instance_of
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
@@ -42,17 +43,25 @@ async def handle_message(message):
 
         async with message.channel.typing():
 
-            async def reply_callback(reply: str):
+            async def reply_callback(reply: str| tuple[bytes, str]):
                 try:
-                    reply = reply.strip()
-                    print(f"REPLY: {reply}")
-                    if not reply:
-                        return
-                    if len(reply) > 2000:
-                        file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
+
+                    if isinstance(reply, tuple):
+                        file_content, filename = reply
+
+                        file = discord.File(io.BytesIO(file_content), filename=filename)
                         await message.channel.send(file=file)
+
                     else:
-                        await message.channel.send(reply)
+                        reply = reply.strip()
+                        print(f"REPLY: {reply}")
+                        if not reply:
+                            return
+                        if len(reply) > 2000:
+                            file = discord.File(io.BytesIO(reply.encode('utf-8')), filename=f"{bot.user.name}s Antwort.txt")
+                            await message.channel.send(file=file)
+                        else:
+                            await message.channel.send(reply)
                 except Exception as e:
                     print(e)
 
@@ -79,7 +88,7 @@ async def handle_message(message):
                             image_bytes = await attachment.read()
                             image_filename = attachment.filename
 
-                            save_path = os.path.join("downloads", f"{msg.created_at.timestamp()}_{image_filename}")
+                            save_path = os.path.join("downloads", image_filename)
                             os.makedirs("downloads", exist_ok=True)
 
                             with open(save_path, "wb") as f:

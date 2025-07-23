@@ -1,11 +1,19 @@
+import base64
 import random
+import signal
 import socket
 import subprocess
+import time
 from enum import Enum
-from typing import List, LiteralString, Literal, Dict
+from typing import List, LiteralString, Literal, Dict, Annotated
+
+import fastmcp
+import requests
+import torch
 from steam import SteamQuery
 from mcstatus import JavaServer
 
+from mcp.types import ImageContent
 from fastmcp import FastMCP
 
 # FastMCP Server initialisieren
@@ -144,6 +152,58 @@ def update_enshrouded_server() -> str:
         return "Timeout: Das Update hat zu lange gedauert und wurde abgebrochen."
     except Exception as e:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
+
+
+@mcp.tool()
+def call_police(message: str) -> str:
+    """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
+    return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}"
+
+
+@mcp.tool()
+def generate_image(prompt: str) -> fastmcp.Image:
+    """Generiert ein Bild basierend auf einem Prompt"""
+
+    with open("forge_stdout.log", "w") as out, open("forge_stderr.log", "w") as err:
+        process = subprocess.Popen(
+            ["stable-diffusion-webui-forge/venv/bin/python", "stable-diffusion-webui-forge/launch.py", "--api", "--listen", "--nowebui"],
+            stdout=out,
+            stderr=err,
+            text=True
+        )
+        print("WebUI gestartet, warte 10 Sekunden...")
+
+        # Warte z.B. 10 Sekunden (oder so lange, wie du den Server brauchst)
+        time.sleep(13)
+
+        url = "http://localhost:7861/sdapi/v1/txt2img"
+
+        payload = {
+            "prompt": prompt,
+            "steps": 4,
+            "width": 512,
+            "height": 512,
+            "cfg_scale": 1,
+            "distilled_cfg_scale": 3.5,
+            "sampler_name": "Euler",
+            "scheduler": "Simple"
+        }
+
+
+        response = requests.post(url, json=payload)
+
+        #torch.cuda.empty_cache()
+
+        print("Beende WebUI...")
+        process.send_signal(signal.SIGINT)
+
+        r = response.json()
+        image_base64 = r["images"][0]
+        image_bytes = base64.b64decode(image_base64)
+        return fastmcp.Image(
+            data=image_bytes,
+            format="png",
+        )
 
 
 # Server erstellen und starten
