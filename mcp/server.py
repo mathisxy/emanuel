@@ -15,6 +15,7 @@ from mcstatus import JavaServer
 
 from mcp.types import ImageContent
 from fastmcp import FastMCP
+from sympy.physics.units import hertz
 
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
@@ -161,8 +162,8 @@ def call_police(message: str) -> str:
 
 
 @mcp.tool()
-def generate_image(prompt: str) -> fastmcp.Image:
-    """Generiert ein Bild basierend auf einem Prompt"""
+def generate_image(prompt: str, height: int = 512, width: int = 512) -> fastmcp.Image:
+    """Generiert ein Bild mit FLUX.1-schnell basierend auf dem Prompt"""
 
     with open("forge_stdout.log", "w") as out, open("forge_stderr.log", "w") as err:
         process = subprocess.Popen(
@@ -181,16 +182,22 @@ def generate_image(prompt: str) -> fastmcp.Image:
             payload = {
                 "prompt": prompt,
                 "steps": 4,
-                "width": 512,
-                "height": 512,
+                "width": width,
+                "height": height,
                 "cfg_scale": 1,
-                "distilled_cfg_scale": 3.5,
+                #"distilled_cfg_scale": 3.5,
                 "sampler_name": "Euler",
                 "scheduler": "Simple"
             }
 
             response = requests.post(url, json=payload)
-            response.raise_for_status()  # optional: Fehler werfen bei HTTP-Fehler
+
+            out.write(f"HTTP STATUS CODE: {response.status_code}\n")
+            if response.status_code != 200:
+                out.write(f"RAISING EXCEPTION FOR STATUS CODE {response.status_code}\n")
+                raise Exception(
+                    response.json()
+                )
 
             r = response.json()
             image_base64 = r["images"][0]

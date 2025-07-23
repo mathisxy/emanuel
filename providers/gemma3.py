@@ -207,7 +207,9 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
 
                             result = await session.call_tool(name, arguments)
 
-                            if result.content[0].type == "image":
+                            if result.isError:
+                                tool_results.append({name: result.content[0].text})
+                            elif result.content[0].type == "image":
 
                                 image_content = base64.b64decode(result.content[0].data)
                                 media_type = result.content[0].mimeType
@@ -225,14 +227,14 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                             else:
                                 tool_results.append({name: json.loads(result.content[0].text)})
 
-                        tool_results_message = json.dumps({"tool_results": tool_results})
+                        chat.history.append({"role": "assistant", "content": response})
 
-                        print(tool_results_message)
+                        if tool_results:
+                            tool_results_message = json.dumps({"tool_results": tool_results})
 
-                        chat.history = chat.history + [
-                            {"role": "assistant", "content": response},
-                            {"role": "system", "content": tool_results_message}
-                        ]
+                            print(tool_results_message)
+
+                            chat.history.append({"role": "system", "content": tool_results_message})
 
                         for image_content, filename in tool_image_results:
                             await reply_callback((image_content, filename))
