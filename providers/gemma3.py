@@ -5,6 +5,7 @@ import mimetypes
 import os
 import re
 import secrets
+import time
 from collections.abc import Callable
 
 import tiktoken
@@ -239,6 +240,8 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                         for image_content, filename in tool_image_results:
                             await reply_callback((image_content, filename))
                             chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
+
+                            time.sleep(5) # For vram to become empty
 
                         print(chat.history)
 

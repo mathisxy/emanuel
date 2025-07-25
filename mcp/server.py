@@ -1,4 +1,5 @@
 import base64
+import json
 import random
 import signal
 import socket
@@ -9,13 +10,10 @@ from typing import List, LiteralString, Literal, Dict, Annotated
 
 import fastmcp
 import requests
-import torch
 from steam import SteamQuery
 from mcstatus import JavaServer
-
-from mcp.types import ImageContent
 from fastmcp import FastMCP
-from sympy.physics.units import hertz
+from comfy_ui import ComfyUI
 
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
@@ -161,60 +159,50 @@ def call_police(message: str) -> str:
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}"
 
 
-@mcp.tool()
-def generate_image(prompt: str, height: int = 512, width: int = 512) -> fastmcp.Image:
-    """Generiert ein Bild mit FLUX.1-schnell basierend auf dem Prompt"""
 
-    with open("forge_stdout.log", "w") as out, open("forge_stderr.log", "w") as err:
-        process = subprocess.Popen(
-            ["stable-diffusion-webui-forge/venv/bin/python", "stable-diffusion-webui-forge/launch.py", "--api", "--listen", "--nowebui"],
-            stdout=out,
-            stderr=err,
-            text=True
+def _free_models():
+    url = "http://localhost:8188/free"  # Passe Host und Port ggf. an
+
+    payload = {
+        "unload_models": True,
+        "free_memory": True,
+    }
+
+    try:
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            print("✅ Modelle wurden erfolgreich entladen.")
+        else:
+            print(f"❌ Fehler beim Entladen: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Ausnahme beim API-Aufruf: {e}")
+
+@mcp.tool()
+async def generate_image(prompt: str, height: int = 512, width: int = 512) -> fastmcp.Image:
+    """Generiert ein Bild ausschließlich auf Grundlage des Prompts mit FLUX.1 schnell"""
+
+    try:
+        with open("comfy-ui/FLUX.1-schnell-Q6.json", "r") as file:
+            workflow = json.load(file)
+
+        #print(workflow)
+
+        workflow["6"]["inputs"]["text"] = prompt
+        workflow["5"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["width"] = width
+
+        comfy = ComfyUI()
+        await comfy.connect()
+        image_bytes = await comfy.queue(workflow)
+        await comfy.close()
+
+        return fastmcp.Image(
+            data=image_bytes,
+            format="png",
         )
 
-        print("WebUI gestartet, warte 10 Sekunden...")
-        time.sleep(13)
-
-        try:
-            url = "http://localhost:7861/sdapi/v1/txt2img"
-
-            payload = {
-                "prompt": prompt,
-                "steps": 4,
-                "width": width,
-                "height": height,
-                "cfg_scale": 1,
-                #"distilled_cfg_scale": 3.5,
-                "sampler_name": "Euler",
-                "scheduler": "Simple"
-            }
-
-            response = requests.post(url, json=payload)
-
-            out.write(f"HTTP STATUS CODE: {response.status_code}\n")
-            if response.status_code != 200:
-                out.write(f"RAISING EXCEPTION FOR STATUS CODE {response.status_code}\n")
-                raise Exception(
-                    response.json()
-                )
-
-            r = response.json()
-            image_base64 = r["images"][0]
-            image_bytes = base64.b64decode(image_base64)
-            return fastmcp.Image(
-                data=image_bytes,
-                format="png",
-            )
-
-        finally:
-            print("Beende WebUI...")
-            process.send_signal(signal.SIGINT)
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-
+    finally:
+        _free_models()
 
 
 # Server erstellen und starten
