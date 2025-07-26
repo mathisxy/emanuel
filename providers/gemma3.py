@@ -241,7 +241,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                             await reply_callback((image_content, filename))
                             chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
 
-                            time.sleep(5) # For vram to become empty
+                            time.sleep(7) # For vram to become empty
 
                         print(chat.history)
 

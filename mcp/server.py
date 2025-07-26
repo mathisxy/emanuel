@@ -1,10 +1,7 @@
-import base64
 import json
 import random
-import signal
 import socket
 import subprocess
-import time
 from enum import Enum
 from typing import List, LiteralString, Literal, Dict, Annotated
 
@@ -178,22 +175,29 @@ def _free_models():
         print(f"❌ Ausnahme beim API-Aufruf: {e}")
 
 @mcp.tool()
-async def generate_image(prompt: str, height: int = 512, width: int = 512) -> fastmcp.Image:
+async def generate_image(
+        prompt: str,
+        height: int = 512,
+        width: int = 512,
+        seed: Annotated[int, "Für Zufälligkeit ändern"]=207522777251329,
+        timeout: Annotated[int, "In Sekunden, für hohe Auflösungen ggf. höher setzen"] = 300
+) -> fastmcp.Image:
     """Generiert ein Bild ausschließlich auf Grundlage des Prompts mit FLUX.1 schnell"""
 
     try:
         with open("comfy-ui/FLUX.1-schnell-Q6.json", "r") as file:
             workflow = json.load(file)
 
-        #print(workflow)
+        print(workflow)
 
         workflow["6"]["inputs"]["text"] = prompt
         workflow["5"]["inputs"]["height"] = height
         workflow["5"]["inputs"]["width"] = width
+        workflow["3"]["inputs"]["seed"] = seed
 
         comfy = ComfyUI()
         await comfy.connect()
-        image_bytes = await comfy.queue(workflow)
+        image_bytes = await comfy.queue(workflow, timeout=timeout)
         await comfy.close()
 
         return fastmcp.Image(

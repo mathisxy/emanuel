@@ -16,9 +16,12 @@ class ComfyUI:
         self.ws = None
 
     async def connect(self):
-        self.ws = await websockets.connect(f"ws://{self.domain}/ws?clientId={self.client_id}")
+        self.ws = await websockets.connect(
+            f"ws://{self.domain}/ws?clientId={self.client_id}",
+            max_size=20 * 1024 * 1024  # 20MB
+        )
 
-    async def queue(self, prompt: Dict[str, str], timeout: float =60) -> bytes:
+    async def queue(self, prompt: Dict[str, str], timeout: float =120) -> bytes:
         prompt_id = str(uuid.uuid4())
         p = {
             "prompt": prompt,
