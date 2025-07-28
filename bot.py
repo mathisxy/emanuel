@@ -4,7 +4,6 @@ from typing import List, Dict
 
 import discord
 import pytz
-from attr.validators import instance_of
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
@@ -96,9 +95,9 @@ async def handle_message(message):
 
                             images.append(save_path)
 
-                            #content += f"\nEin Bild wurde gesendet von {author}: {attachment.filename}"
+                            content += f"\nBildname: {attachment.filename}"
                         else:
-                            content += f"\nEine Datei wurde gesendet von {author}: {attachment.filename}"
+                            content += f"\nDateiname: {attachment.filename}"
 
                 if not content and not images:
                     continue

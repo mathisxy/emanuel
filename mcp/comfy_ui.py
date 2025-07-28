@@ -1,13 +1,14 @@
 import asyncio
+import io
 import json
 import uuid
 from typing import Dict, Annotated
 
+import PIL
 import requests
 import websockets
-from attr.validators import instance_of
 from websockets import ConnectionClosed
-
+from PIL import Image
 
 class ComfyUI:
     def __init__(self, domain: str = '127.0.0.1:8188'):
@@ -20,6 +21,17 @@ class ComfyUI:
             f"ws://{self.domain}/ws?clientId={self.client_id}",
             max_size=20 * 1024 * 1024  # 20MB
         )
+
+    def upload_image(self, image: bytes) -> str:
+        buffer = io.BytesIO(image)
+        image_format = Image.open(buffer).format.lower()
+        buffer.seek(0)
+        response = requests.post(
+            f"http://{self.domain}/upload/image",
+            files={"image": (f"upload.{image_format}", buffer, f"image/{image_format}")}
+        )
+        response.raise_for_status()
+        return response.json()["name"]
 
     async def queue(self, prompt: Dict[str, str], timeout: float =120) -> bytes:
         prompt_id = str(uuid.uuid4())

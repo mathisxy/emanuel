@@ -157,13 +157,15 @@ def call_police(message: str) -> str:
 
 
 
-def _free_models():
+def _free_models(including_execution_cache=False):
     url = "http://localhost:8188/free"  # Passe Host und Port ggf. an
 
     payload = {
         "unload_models": True,
-        "free_memory": True,
     }
+
+    if including_execution_cache:
+        payload["free_memory"] = True
 
     try:
         response = requests.post(url, json=payload)
@@ -175,25 +177,69 @@ def _free_models():
         print(f"❌ Ausnahme beim API-Aufruf: {e}")
 
 @mcp.tool()
-async def generate_image(
+async def generate_image_from_reference_image(
+        model: Literal["FLUX.1-kontext-Q6"],
+        reference_image: Annotated[str, "Referenzbild, exakten Dateinamen angeben"],
         prompt: str,
-        height: int = 512,
-        width: int = 512,
-        seed: Annotated[int, "Für Zufälligkeit ändern"]=207522777251329,
-        timeout: Annotated[int, "In Sekunden, für hohe Auflösungen ggf. höher setzen"] = 300
+        seed: int=207522777251329,
+        guidance: Annotated[float, "Kleinerer Wert erlaubt mehr Kreativität"] = 3.5,
+        timeout: Annotated[int, "Sekunden"] = 300,
 ) -> fastmcp.Image:
-    """Generiert ein Bild ausschließlich auf Grundlage des Prompts mit FLUX.1 schnell"""
+    """Generiert ein Bild auf Grundlage des Referenzbildes und des Text-Prompts.
+    Dieses Tool ermöglicht Bildbearbeitung des Referenzbildes per Prompt"""
 
     try:
-        with open("comfy-ui/FLUX.1-schnell-Q6.json", "r") as file:
+        with open(f"comfy-ui/{model}.json", "r") as file:
             workflow = json.load(file)
 
         print(workflow)
 
         workflow["6"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["seed"] = seed
+        workflow["24"]["inputs"]["guidance"] = guidance
+
+        comfy = ComfyUI()
+        await comfy.connect()
+
+        with open(f"../downloads/{reference_image}", "rb") as f:
+            image_bytes = f.read()
+            upload_image_name = comfy.upload_image(image_bytes)
+            print(upload_image_name)
+            workflow["16"]["inputs"]["image"] = upload_image_name
+
+        image_bytes = await comfy.queue(workflow, timeout=timeout)
+        await comfy.close()
+
+        return fastmcp.Image(
+            data=image_bytes,
+            format="png",
+        )
+
+    finally:
+        _free_models()
+
+@mcp.tool()
+async def generate_image(
+        model: Literal["FLUX.1-schnell-Q6", "FLUX.1-dev-Q6"],
+        prompt: str,
+        height: int = 512,
+        width: int = 512,
+        seed: int=207522777251329,
+        timeout: Annotated[int, "Sekunden"] = 300,
+) -> fastmcp.Image:
+    """Generiert ein Bild AUSSCHLIEßLICH auf Grundlage des Text-Prompts.
+    Dieses Tool hat keinen Zugriff auf Referenzbilder!"""
+
+    try:
+        with open(f"comfy-ui/{model}.json", "r") as file:
+            workflow = json.load(file)
+
+        print(workflow)
+
+        workflow["6"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["seed"] = seed
         workflow["5"]["inputs"]["height"] = height
         workflow["5"]["inputs"]["width"] = width
-        workflow["3"]["inputs"]["seed"] = seed
 
         comfy = ComfyUI()
         await comfy.connect()

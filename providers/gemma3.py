@@ -241,9 +241,11 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                             await reply_callback((image_content, filename))
                             chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
 
-                            time.sleep(7) # For vram to become empty
 
                         print(chat.history)
+
+                        if not tool_results:
+                            break
 
                     else:
                         await reply_callback(response)
@@ -274,7 +276,20 @@ ollama_client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434
 ollama_lock = asyncio.Lock()
 
 
+import pynvml
+
+def check_free_vram(required_gb=8):
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Nur GPU 0
+    info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    free_gb = info.free / 1024**3
+    if free_gb < required_gb:
+        raise RuntimeError(f"Nicht genug VRAM: {free_gb:.2f} GB frei, {required_gb} GB benötigt")
+    print(f"Genug VRAM vorhanden: {free_gb:.2f} GB frei")
+
 async def call_ollama(chat: OllamaChat) -> str:
+
+    check_free_vram(required_gb=10)
 
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
