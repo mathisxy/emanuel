@@ -81,7 +81,6 @@ async def handle_message(message):
 
                 if msg.attachments:
                     for attachment in msg.attachments:
-                        author = "dir" if msg.author == bot.user else msg.author
 
                         if attachment.content_type and "image" in attachment.content_type:
                             image_bytes = await attachment.read()
@@ -101,10 +100,6 @@ async def handle_message(message):
 
                 if not content and not images:
                     continue
-                    #if msg.author == bot.user:
-                    #    history.append({"role": "assistant", "content": content})
-                    #else:
-                    #    history.append({"role": "user", "content": f"Um {msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {content}"})
 
                 history.append({"role": role, "content": content, "images": images})
 
