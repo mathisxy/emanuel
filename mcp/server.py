@@ -199,7 +199,7 @@ async def generate_image_from_reference_image(
 
 @mcp.tool()
 async def generate_image(
-        model: Literal["FLUX.1-schnell-Q6", "FLUX.1-dev-Q6"],
+        model: Literal["FLUX.1-schnell-Q2", "FLUX.1-schnell-Q6", "FLUX.1-dev-Q6"],
         prompt: str,
         height: int = 512,
         width: int = 512,
