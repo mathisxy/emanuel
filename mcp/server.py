@@ -153,36 +153,15 @@ def update_enshrouded_server() -> str:
 @mcp.tool()
 def call_police(message: str) -> str:
     """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
-    return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}"
-
-
-
-def _free_models(including_execution_cache=False):
-    url = "http://localhost:8188/free"  # Passe Host und Port ggf. an
-
-    payload = {
-        "unload_models": True,
-    }
-
-    if including_execution_cache:
-        payload["free_memory"] = True
-
-    try:
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            print("✅ Modelle wurden erfolgreich entladen.")
-        else:
-            print(f"❌ Fehler beim Entladen: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"❌ Ausnahme beim API-Aufruf: {e}")
+    return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
 
 @mcp.tool()
 async def generate_image_from_reference_image(
-        model: Literal["FLUX.1-kontext-Q6"],
-        reference_image: Annotated[str, "Referenzbild, exakten Dateinamen angeben"],
+        model: Literal["FLUX.1-kontext-Q5", "FLUX.1-kontext-Q6", ],
+        reference_image: Annotated[str, "Exakten Dateinamen angeben"],
         prompt: str,
         seed: int=207522777251329,
-        guidance: Annotated[float, "Kleinerer Wert erlaubt mehr Kreativität"] = 3.5,
+        guidance: float = 2.5,
         timeout: Annotated[int, "Sekunden"] = 300,
 ) -> fastmcp.Image:
     """Generiert ein Bild auf Grundlage des Referenzbildes und des Text-Prompts.
@@ -216,7 +195,7 @@ async def generate_image_from_reference_image(
         )
 
     finally:
-        _free_models()
+        ComfyUI().free_models()
 
 @mcp.tool()
 async def generate_image(
@@ -252,8 +231,14 @@ async def generate_image(
         )
 
     finally:
-        _free_models()
+        ComfyUI().free_models()
 
+@mcp.tool()
+def interrupt_image_generation():
+    #raise Exception("Test")
+    comfy = ComfyUI()
+
+    comfy.interrupt()
 
 # Server erstellen und starten
 if __name__ == "__main__":

@@ -209,6 +209,7 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                             result = await session.call_tool(name, arguments)
 
                             if result.isError:
+                                time.sleep(7) #Damit VRAM ggf. wieder freigegeben wird
                                 tool_results.append({name: result.content[0].text})
                             elif result.content[0].type == "image":
 

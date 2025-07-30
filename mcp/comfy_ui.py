@@ -4,15 +4,15 @@ import json
 import uuid
 from typing import Dict, Annotated
 
-import PIL
 import requests
 import websockets
 from websockets import ConnectionClosed
 from PIL import Image
 
 class ComfyUI:
-    def __init__(self, domain: str = '127.0.0.1:8188'):
+    def __init__(self, domain: str = '127.0.0.1:8188', http_prefix="http://"):
         self.domain = domain
+        self.http_prefix = http_prefix
         self.client_id = str(uuid.uuid4())
         self.ws = None
 
@@ -27,7 +27,7 @@ class ComfyUI:
         image_format = Image.open(buffer).format.lower()
         buffer.seek(0)
         response = requests.post(
-            f"http://{self.domain}/upload/image",
+            f"{self.http_prefix}{self.domain}/upload/image",
             files={"image": (f"upload.{image_format}", buffer, f"image/{image_format}")}
         )
         response.raise_for_status()
@@ -41,7 +41,7 @@ class ComfyUI:
             "prompt_id": prompt_id,
         }
 
-        requests.post(f"http://{self.domain}/prompt", json=p)
+        requests.post(f"{self.http_prefix}{self.domain}/prompt", json=p)
 
         try:
             async with asyncio.timeout(timeout):  # Python 3.11+
@@ -58,6 +58,9 @@ class ComfyUI:
                         if msg.get("type") == "execution_success" and msg["data"].get("prompt_id") == prompt_id:
                             raise RuntimeError("Execution finished but no image was received.")
 
+                        if msg.get("type") == "execution_interrupted":
+                            raise RuntimeError(f"Die Bildgenerierung wurde unterbrochen")
+
                     else:
                         # Binärdaten (vermutlich Bild)
                         print("BINÄRDATEN")
@@ -69,6 +72,31 @@ class ComfyUI:
             raise ConnectionError(f"WebSocket connection closed: {e}")
         except Exception as e:
             raise RuntimeError(f"Unexpected error: {e}")
+
+    def interrupt(self):
+        response = requests.post(f"{self.http_prefix}{self.domain}/interrupt")
+
+        response.raise_for_status()
+
+
+    def free_models(self, including_execution_cache=False):
+        url = f"{self.http_prefix}{self.domain}/free"
+
+        payload = {
+            "unload_models": True,
+        }
+
+        if including_execution_cache:
+            payload["free_memory"] = True
+
+        try:
+            response = requests.post(url, json=payload)
+            if response.status_code == 200:
+                print("✅ Modelle wurden erfolgreich entladen.")
+            else:
+                print(f"❌ Fehler beim Entladen: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"❌ Ausnahme beim API-Aufruf: {e}")
 
     async def close(self):
         await self.ws.close()
