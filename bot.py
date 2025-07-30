@@ -126,35 +126,4 @@ async def on_message(message: discord.Message):
 
 
 
-# @bot.event
-# async def on_ready():
-#     print(f"Bot ist online als {bot.user}!")
-#     await bot.tree.sync()
-#
-#
-# @app_commands.choices(action=[
-#     app_commands.Choice(name="Stoppen", value="stop"),
-#     app_commands.Choice(name="Starten", value="start"),
-#     app_commands.Choice(name="Neustarten", value="restart"),
-# ])
-#
-# @bot.tree.command(name="emanuel", description="Steuere Emanuel")
-# async def emanuel(interaction: discord.Interaction, action: app_commands.Choice[str]):
-#
-#     try:
-#         result = subprocess.run(
-#             ["sudo", "service", "emanuel", action.value],
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             text=True
-#         )
-#         if result.returncode == 0:
-#             await interaction.response.send_message(f"✅ {action.name} von Emanuel erfolgreich ausgeführt.")
-#         else:
-#             await interaction.response.send_message(f"❌ {action.name} von Emanuel fehlgeschlagen:\n```\n{result.stderr.strip()}\n```")
-#     except Exception as e:
-#         return f"❌ Ausnahmefehler: {str(e)}"
-
-
-
 bot.run(discord_token)

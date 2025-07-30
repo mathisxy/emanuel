@@ -206,8 +206,8 @@ async def generate_image(
         seed: int=207522777251329,
         timeout: Annotated[int, "Sekunden"] = 300,
 ) -> fastmcp.Image:
-    """Generiert ein Bild AUSSCHLIEßLICH auf Grundlage des Text-Prompts.
-    Dieses Tool hat keinen Zugriff auf Referenzbilder!"""
+    """Generiert ein Bild ausschließlich auf Grundlage des übergebenen Text-Prompts.
+    Dieses Tool kann vorherige Bilder nicht sehen!"""
 
     try:
         with open(f"comfy-ui/{model}.json", "r") as file:
