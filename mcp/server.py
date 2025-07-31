@@ -164,8 +164,7 @@ async def generate_image_from_reference_image(
         guidance: float = 2.5,
         timeout: Annotated[int, "Sekunden"] = 300,
 ) -> fastmcp.Image:
-    """Generiert ein Bild auf Grundlage des Referenzbildes und des Text-Prompts.
-    Dieses Tool ermöglicht Bildbearbeitung des Referenzbildes per Prompt"""
+    """Bildbearbeitungstool: Generiert ein neues Bild auf Grundlage des Referenzbildes und des Text-Prompts"""
 
     try:
         with open(f"comfy-ui/{model}.json", "r") as file:
@@ -206,7 +205,7 @@ async def generate_image(
         seed: int=207522777251329,
         timeout: Annotated[int, "Sekunden"] = 300,
 ) -> fastmcp.Image:
-    """Generiert ein Bild ausschließlich auf Grundlage des übergebenen Text-Prompts.
+    """Bildgenerierungstool: Generiert ein Bild ausschließlich auf Grundlage des übergebenen Text-Prompts.
     Dieses Tool kann vorherige Bilder nicht sehen!"""
 
     try:
