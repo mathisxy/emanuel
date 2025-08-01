@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import socket
@@ -6,10 +7,9 @@ from enum import Enum
 from typing import List, LiteralString, Literal, Dict, Annotated
 
 import fastmcp
-import requests
 from steam import SteamQuery
 from mcstatus import JavaServer
-from fastmcp import FastMCP
+from fastmcp import FastMCP, Context
 from comfy_ui import ComfyUI
 
 # FastMCP Server initialisieren
@@ -157,6 +157,7 @@ def call_police(message: str) -> str:
 
 @mcp.tool()
 async def generate_image_from_reference_image(
+        ctx: Context,
         model: Literal["FLUX.1-kontext-Q5", "FLUX.1-kontext-Q6", ],
         reference_image: Annotated[str, "Exakten Dateinamen angeben"],
         prompt: str,
@@ -165,6 +166,8 @@ async def generate_image_from_reference_image(
         timeout: Annotated[int, "Sekunden"] = 300,
 ) -> fastmcp.Image:
     """Bildbearbeitungstool: Generiert ein neues Bild auf Grundlage des Referenzbildes und des Text-Prompts"""
+
+    comfy = ComfyUI()
 
     try:
         with open(f"comfy-ui/{model}.json", "r") as file:
@@ -176,7 +179,6 @@ async def generate_image_from_reference_image(
         workflow["3"]["inputs"]["seed"] = seed
         workflow["24"]["inputs"]["guidance"] = guidance
 
-        comfy = ComfyUI()
         await comfy.connect()
 
         with open(f"../downloads/{reference_image}", "rb") as f:
@@ -185,19 +187,16 @@ async def generate_image_from_reference_image(
             print(upload_image_name)
             workflow["16"]["inputs"]["image"] = upload_image_name
 
-        image_bytes = await comfy.queue(workflow, timeout=timeout)
-        await comfy.close()
+        await ctx.info("Verbinden mit ComfyUI...")
 
-        return fastmcp.Image(
-            data=image_bytes,
-            format="png",
-        )
+        return await _comfyui_generate(comfy, ctx, workflow, timeout)
 
     finally:
-        ComfyUI().free_models()
+        comfy.free_models()
 
 @mcp.tool()
 async def generate_image(
+        ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-dev-Q6"],
         prompt: str,
         height: int = 512,
@@ -207,6 +206,8 @@ async def generate_image(
 ) -> fastmcp.Image:
     """Bildgenerierungstool: Generiert ein Bild ausschließlich auf Grundlage des übergebenen Text-Prompts.
     Dieses Tool kann vorherige Bilder nicht sehen!"""
+
+    comfy = ComfyUI()
 
     try:
         with open(f"comfy-ui/{model}.json", "r") as file:
@@ -219,25 +220,61 @@ async def generate_image(
         workflow["5"]["inputs"]["height"] = height
         workflow["5"]["inputs"]["width"] = width
 
-        comfy = ComfyUI()
-        await comfy.connect()
-        image_bytes = await comfy.queue(workflow, timeout=timeout)
-        await comfy.close()
+        await ctx.info("Verbinden mit ComfyUI...")
 
-        return fastmcp.Image(
-            data=image_bytes,
-            format="png",
-        )
+        return await _comfyui_generate(comfy, ctx, workflow, timeout)
+
 
     finally:
-        ComfyUI().free_models()
+        comfy.free_models()
+
+
+async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> fastmcp.Image:
+
+    queue = asyncio.Queue[Dict]()
+
+    async def listener(queue: asyncio.Queue[Dict]):
+        while True:
+            event = await queue.get()
+            if event["type"] == "progress":
+                progress = event["data"]["value"]
+                max = event["data"]["max"]
+                await ctx.info(f"Progress: {progress}/{max}")
+
+
+    await comfy.connect()
+    task1 = asyncio.create_task(comfy.queue(workflow, timeout, queue))
+    task2 = asyncio.create_task(listener(queue))
+
+    await asyncio.wait([task1, task2], return_when=asyncio.FIRST_COMPLETED)
+
+    task2.cancel()
+    image_bytes = task1.result()
+
+    await comfy.close()
+
+    return fastmcp.Image(
+        data=image_bytes,
+        format="png",
+    )
+
 
 @mcp.tool()
-def interrupt_image_generation():
+def free_image_generation_vram(including_execution_cache: bool = False) -> bool:
+
+    ComfyUI().free_models(including_execution_cache)
+
+    return True
+
+
+@mcp.tool()
+def interrupt_image_generation() -> bool:
     #raise Exception("Test")
     comfy = ComfyUI()
 
     comfy.interrupt()
+
+    return True
 
 # Server erstellen und starten
 if __name__ == "__main__":

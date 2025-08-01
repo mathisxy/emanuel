@@ -9,10 +9,6 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
-from sympy.logic.boolalg import Exclusive
-
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
 
 load_dotenv()
 
@@ -27,6 +23,7 @@ class EmanuelAction(str, Enum):
     START = "start"
     RESTART = "restart"
     INTERRUPT = "interrupt_image_generation"
+    UNLOAD_COMFY = "unload_comfy_models"
 
 
 @bot.event
@@ -38,7 +35,8 @@ async def on_ready():
     app_commands.Choice(name="Stoppen", value=EmanuelAction.STOP),
     app_commands.Choice(name="Starten", value=EmanuelAction.START),
     app_commands.Choice(name="Neustarten", value=EmanuelAction.RESTART),
-    app_commands.Choice(name="Bildgenerierung abbrechen", value=EmanuelAction.INTERRUPT)
+    app_commands.Choice(name="Bildgenerierung abbrechen", value=EmanuelAction.INTERRUPT),
+    app_commands.Choice(name="Bildgenerierungsmodelle aus VRAM entfernen", value=EmanuelAction.UNLOAD_COMFY)
 ])
 @bot.tree.command(name="emanuel", description="Steuere Emanuel")
 async def emanuel(interaction: discord.Interaction, action: app_commands.Choice[str]):
@@ -52,31 +50,21 @@ async def emanuel(interaction: discord.Interaction, action: app_commands.Choice[
             async with client:
                 try:
                     await client.call_tool("interrupt_image_generation", {})
-                    await interaction.response.send_message(f"🛑 Bildgenerierung abgebrochen")
+                    await interaction.response.send_message(f"🛑 Bildgenerierung abgebrochen", ephemeral=True)
                 except ToolError as e:
-                    await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}")
+                    await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}", ephemeral=True)
 
 
+        if action.value == EmanuelAction.UNLOAD_COMFY:
 
-            # async with streamablehttp_client(os.getenv("MCP_SERVER_URL")) as (
-            #         read_stream,
-            #         write_stream,
-            #         _,
-            # ):
-            #     # Create a session using the client streams
-            #     async with ClientSession(read_stream, write_stream) as session:
-            #
-            #         try:
-            #             # Initialize the connection
-            #             await session.initialize()
-            #             result = await session.call_tool("interrupt_image_generation", {})
-            #             if result.isError:
-            #                 raise Exception(result.content[0].text)
-            #             else:
-            #                 await interaction.response.send_message(f"🛑 Bildgenerierung abgebrochen")
-            #         except Exception as e:
-            #             await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}")
+            client = Client(os.getenv("MCP_SERVER_URL"))
 
+            async with client:
+                try:
+                    await client.call_tool("free_image_generation_vram", {})
+                    await interaction.response.send_message(f"✅ Modelle werden entladen", ephemeral=True)
+                except ToolError as e:
+                    await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}", ephemeral=True)
 
         else:
 
@@ -87,11 +75,11 @@ async def emanuel(interaction: discord.Interaction, action: app_commands.Choice[
                 text=True
             )
             if result.returncode == 0:
-                await interaction.response.send_message(f"✅ {action.name} erfolgreich ausgeführt.")
+                await interaction.response.send_message(f"✅ {action.name} erfolgreich ausgeführt.", ephemeral=True)
             else:
-                await interaction.response.send_message(f"❌ Fehler:\n```\n{result.stderr.strip()}\n```")
+                await interaction.response.send_message(f"❌ Fehler:\n```\n{result.stderr.strip()}\n```", ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f"❌ Abrakadabra-Ausnahmefehler: {str(e)}")
+        await interaction.response.send_message(f"❌ Abrakadabra-Ausnahmefehler: {str(e)}", ephemeral=True)
 
 
 bot.run(discord_token)

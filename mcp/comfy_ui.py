@@ -2,7 +2,7 @@ import asyncio
 import io
 import json
 import uuid
-from typing import Dict, Annotated
+from typing import Dict, Annotated, Callable, Awaitable
 
 import requests
 import websockets
@@ -33,7 +33,7 @@ class ComfyUI:
         response.raise_for_status()
         return response.json()["name"]
 
-    async def queue(self, prompt: Dict[str, str], timeout: float =120) -> bytes:
+    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[Dict]|None = None) -> bytes:
         prompt_id = str(uuid.uuid4())
         p = {
             "prompt": prompt,
@@ -51,6 +51,9 @@ class ComfyUI:
                     if isinstance(out, str):
                         msg = json.loads(out)
                         print("Status:", msg)
+
+                        if events:
+                            await events.put(msg)
 
                         if msg.get("type") == "execution_error":
                             raise RuntimeError(f"ComfyUI execution error: {msg}")
@@ -71,7 +74,7 @@ class ComfyUI:
         except ConnectionClosed as e:
             raise ConnectionError(f"WebSocket connection closed: {e}")
         except Exception as e:
-            raise RuntimeError(f"Unexpected error: {e}")
+            raise RuntimeError(str(e))
 
     def interrupt(self):
         response = requests.post(f"{self.http_prefix}{self.domain}/interrupt")

@@ -9,13 +9,18 @@ import time
 from collections.abc import Callable
 
 import tiktoken
+from fastmcp import Client
+from fastmcp.client.logging import LogMessage
+from mcp.server.fastmcp.exceptions import ToolError
 from ollama import AsyncClient
 from typing import List, Dict, Awaitable, Tuple
 
-from mcp import ClientSession, Tool
-from mcp.client.streamable_http import streamablehttp_client
+from mcp import Tool
 
 import GPUtil
+
+from discord_message import DiscordMessage, DiscordMessageTmp, DiscordMessageReply, DiscordMessageFile
+
 
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
 
@@ -48,8 +53,6 @@ Nutze die Tools immer nur wenn nötig!
 
 
 🔧 **Tools aufrufen**
-Sammle als erstes ALLE Tools, die du verwenden willst.
-Schreibe dann ALLE gesammelten Tool-Calls untereinander auf.
 Verwende immer EXAKT dieses JSON-Format für die Tool-Calls:
 
 
@@ -61,13 +64,6 @@ Verwende immer EXAKT dieses JSON-Format für die Tool-Calls:
   }}
 }}
 ```||
-||```tool
-{{
-  "name": "tool2",
-  "arguments": {{}}
-}}
-```||
-etc.
  
  
 💡 **Erklärung wie es funktioniert**
@@ -153,68 +149,65 @@ class OllamaChat:
 
 ollama_chat: Dict[str, OllamaChat] = {}
 
-async def call_ai(history: List[Dict], instructions: str, reply_callback: Callable[[str|tuple[bytes, str]], Awaitable[None]], channel: str):
+async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage], channel: str):
 
-    async with streamablehttp_client(os.getenv("MCP_SERVER_URL")) as (
-            read_stream,
-            write_stream,
-            _,
-    ):
-        # Create a session using the client streams
-        async with ClientSession(read_stream, write_stream) as session:
+    check_free_vram(required_gb=10)
 
-            try:
+    async def log_handler(message: LogMessage):
+        print(f"EVENT: {message.data}")
+        await queue.put(DiscordMessageTmp(str(message.data)))
 
-                chat = ollama_chat.setdefault(channel, OllamaChat())
+    client = Client(os.getenv("MCP_SERVER_URL"), log_handler=log_handler,)
 
-                # Initialize the connection
-                await session.initialize()
+    async with client:
 
-                tools_response = await session.list_tools()
-                mcp_tools = tools_response.tools
+        try:
 
-                system_prompt = get_tools_system_prompt(mcp_tools)
+            chat = ollama_chat.setdefault(channel, OllamaChat())
 
-                #print(system_prompt)
+            mcp_tools = await client.list_tools()
 
-                enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
-                print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
+            system_prompt = get_tools_system_prompt(mcp_tools)
 
-                chat.update_history(history, f"{instructions}\n\n{system_prompt}")
+            #print(system_prompt)
 
-                print(chat.history)
+            enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
+            print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
-                for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
+            chat.update_history(history, f"{instructions}\n\n{system_prompt}")
 
-                    response = await call_ollama(chat)
+            print(chat.history)
 
-                    tool_calls = extract_tool_calls(response)
+            for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
 
-                    if tool_calls:
+                response = await call_ollama(chat)
 
-                        print(response)
+                tool_calls = extract_tool_calls(response)
 
-                        await reply_callback(response)
+                if tool_calls:
 
-                        tool_results = []
-                        tool_image_results = []
+                    print(response)
 
-                        for tool_call in tool_calls:
+                    await queue.put(DiscordMessageReply(response))
 
-                            print(f"TOOL CALL: {tool_call.get("name")}")
+                    tool_results = []
+                    tool_image_results = []
 
-                            name = tool_call.get("name")
-                            arguments = tool_call.get("arguments", {})
+                    for tool_call in tool_calls:
 
-                            result = await session.call_tool(name, arguments)
+                        print(f"TOOL CALL: {tool_call.get("name")}")
 
-                            if result.isError:
-                                time.sleep(7) #Damit VRAM ggf. wieder freigegeben wird
-                                tool_results.append({name: result.content[0].text})
-                            elif result.content[0].type == "image":
+                        name = tool_call.get("name")
+                        arguments = tool_call.get("arguments", {})
 
-                                image_content = base64.b64decode(result.content[0].data)
-                                media_type = result.content[0].mimeType
+
+                        try:
+                            result = await client.call_tool(name, arguments)
+
+                            if result[0].type == "image":
+
+                                image_content = base64.b64decode(result[0].data)
+                                media_type = result[0].mimeType
                                 ext = mimetypes.guess_extension(media_type)
 
                                 filename = f"{secrets.token_urlsafe(8)}{ext}"
@@ -227,33 +220,38 @@ async def call_ai(history: List[Dict], instructions: str, reply_callback: Callab
                                     f.write(image_content)
 
                             else:
-                                tool_results.append({name: json.loads(result.content[0].text)})
+                                tool_results.append({name: json.loads(result[0].text)})
 
-                        chat.history.append({"role": "assistant", "content": response})
+                        except ToolError as e:
+                            time.sleep(7) #Damit VRAM ggf. wieder freigegeben wird
+                            tool_results.append({name: str(e)})
 
-                        if tool_results:
-                            tool_results_message = json.dumps({"tool_results": tool_results})
+                    chat.history.append({"role": "assistant", "content": response})
 
-                            print(tool_results_message)
+                    if tool_results:
+                        tool_results_message = json.dumps({"tool_results": tool_results})
 
-                            chat.history.append({"role": "system", "content": tool_results_message})
+                        print(tool_results_message)
 
-                        for image_content, filename in tool_image_results:
-                            await reply_callback((image_content, filename))
-                            chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
+                        chat.history.append({"role": "system", "content": tool_results_message})
+
+                    for image_content, filename in tool_image_results:
+                        await queue.put(DiscordMessageFile(image_content, filename))
+                        chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
 
 
-                        print(chat.history)
+                    print(chat.history)
 
-                        if not tool_results:
-                            break
-
-                    else:
-                        await reply_callback(response)
+                    if not tool_results:
                         break
 
-            except Exception as e:
-                await reply_callback(f"Fehler: {e}")
+                else:
+                    await queue.put(DiscordMessageReply(response))
+                    break
+
+        except Exception as e:
+            print(e)
+            await queue.put(DiscordMessageTmp(str(e)))
 
 
 def extract_tool_calls(text: str) -> List[Dict]:
@@ -289,8 +287,6 @@ def check_free_vram(required_gb=8):
     print(f"Genug VRAM vorhanden: {free_gb:.2f} GB frei")
 
 async def call_ollama(chat: OllamaChat) -> str:
-
-    check_free_vram(required_gb=10)
 
     model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
