@@ -151,17 +151,19 @@ ollama_chat: Dict[str, OllamaChat] = {}
 
 async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage], channel: str):
 
-    check_free_vram(required_gb=10)
+    try:
 
-    async def log_handler(message: LogMessage):
-        print(f"EVENT: {message.data}")
-        await queue.put(DiscordMessageTmp(str(message.data)))
+        check_free_vram(required_gb=10)
 
-    client = Client(os.getenv("MCP_SERVER_URL"), log_handler=log_handler,)
+        async def log_handler(message: LogMessage):
+            print(f"EVENT: {message.data}")
+            await queue.put(DiscordMessageTmp(str(message.data)))
 
-    async with client:
+        client = Client(os.getenv("MCP_SERVER_URL"), log_handler=log_handler,)
 
-        try:
+        async with client:
+
+
 
             chat = ollama_chat.setdefault(channel, OllamaChat())
 
@@ -249,9 +251,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                     await queue.put(DiscordMessageReply(response))
                     break
 
-        except Exception as e:
-            print(e)
-            await queue.put(DiscordMessageTmp(str(e)))
+    except Exception as e:
+        print(e)
+        await queue.put(DiscordMessageTmp(str(e)))
 
 
 def extract_tool_calls(text: str) -> List[Dict]:

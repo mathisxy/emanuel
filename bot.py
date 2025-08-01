@@ -1,7 +1,6 @@
 import asyncio
 import importlib
 import io
-import time
 from typing import List, Dict, Literal
 
 import discord
@@ -10,8 +9,6 @@ from discord import Message
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-
-from torchgen.packaged.autograd.gen_inplace_or_view_type import emit_view_func
 
 from discord_message import DiscordMessage, DiscordMessageTmp, DiscordMessageFile, DiscordMessageReply, \
     DiscordMessageEnd

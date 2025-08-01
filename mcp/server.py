@@ -158,7 +158,7 @@ def call_police(message: str) -> str:
 @mcp.tool()
 async def generate_image_from_reference_image(
         ctx: Context,
-        model: Literal["FLUX.1-kontext-Q5", "FLUX.1-kontext-Q6", ],
+        model: Literal["FLUX.1-kontext-Q6"],
         reference_image: Annotated[str, "Exakten Dateinamen angeben"],
         prompt: str,
         seed: int=207522777251329,
