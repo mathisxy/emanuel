@@ -5,13 +5,12 @@ from typing import List, Dict, Literal
 
 import discord
 import pytz
-from discord import Message
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
 
-from discord_message import DiscordMessage, DiscordMessageTmp, DiscordMessageFile, DiscordMessageReply, \
-    DiscordMessageEnd
+from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
+    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 
 load_dotenv()
 
@@ -31,9 +30,14 @@ module = importlib.import_module(f"providers.{ai}")
 
 
 
-async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage], channel: str):
-    await module.call_ai(history, instructions, queue, channel)
-    await queue.put(DiscordMessageEnd())
+async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str):
+    try:
+        await module.call_ai(history, instructions, queue, channel)
+    except Exception as e:
+        print(f"FEHLER BEI CALL AI: {e}")
+        await queue.put(DiscordMessageReplyTmp(value=f"Ein Fehler ist aufgetreten: {str(e)}", key="error"))
+    finally:
+        await queue.put(None)
 
 
 
@@ -47,32 +51,21 @@ async def handle_message(message):
 
     if is_relevant_message(message):
 
-        async with message.channel.typing():
-
-            tmp_msg = None
+        async with message.channel.typing(), DiscordTemporaryMessagesController(channel=message.channel) as tmp_controller:
 
             try:
 
                 queue = asyncio.Queue[DiscordMessage]()
 
-                async def listener(queue: asyncio.Queue[DiscordMessage]):
-
-                    nonlocal tmp_msg
+                async def listener(queue: asyncio.Queue[DiscordMessage|None]):
 
                     while True:
                         try:
                             event = await queue.get()
-                            if isinstance(event, DiscordMessageEnd):
+                            if event is None:
                                 break
-                            if isinstance(event, DiscordMessageTmp):
-                                embed = discord.Embed(
-                                    description=event.value,
-                                    color=discord.Color.dark_gray()
-                                )
-                                if not tmp_msg:
-                                    tmp_msg = await message.channel.send(embed=embed)
-                                else:
-                                    await tmp_msg.edit(embed=embed)
+                            if isinstance(event, DiscordMessageTmpMixin):
+                                await tmp_controller.set_message(event)
 
                             elif isinstance(event, DiscordMessageFile):
 
@@ -108,7 +101,7 @@ async def handle_message(message):
                         continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.clean_content if role != "user" else f"Um {msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {msg.clean_content}"
+                    content = msg.clean_content if role != "user" else f"Um {msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {msg.clean_content}"
                     images = []
 
                     if msg.attachments:
@@ -144,15 +137,12 @@ async def handle_message(message):
 
                 task1 = asyncio.create_task(listener(queue))
                 task2 = asyncio.create_task(call_ai(history, instructions, queue, channel_name))
+
                 await asyncio.gather(task1, task2)
+
 
             except Exception as e:
                 await message.channel.send(str(e))
-
-            finally:
-                if isinstance(tmp_msg, Message):
-                    await asyncio.sleep(7) # komisch warten
-                    await tmp_msg.delete()
 
 
 @bot.event

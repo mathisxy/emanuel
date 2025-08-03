@@ -1,16 +1,21 @@
 import asyncio
+import base64
 import json
 import random
 import socket
 import subprocess
+import time
 from enum import Enum
-from typing import List, LiteralString, Literal, Dict, Annotated
+from typing import List, Literal, Dict, Annotated
 
 import fastmcp
+from fastmcp.utilities.types import Image
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
 from comfy_ui import ComfyUI
+from comfy_ui import ComfyUIEvent, ComfyUIProgress
+from comfy_ui import ComfyUIImage
 
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
@@ -164,7 +169,7 @@ async def generate_image_from_reference_image(
         seed: int=207522777251329,
         guidance: float = 2.5,
         timeout: Annotated[int, "Sekunden"] = 300,
-) -> fastmcp.Image:
+) -> Image:
     """Bildbearbeitungstool: Generiert ein neues Bild auf Grundlage des Referenzbildes und des Text-Prompts"""
 
     comfy = ComfyUI()
@@ -187,7 +192,7 @@ async def generate_image_from_reference_image(
             print(upload_image_name)
             workflow["16"]["inputs"]["image"] = upload_image_name
 
-        await ctx.info("Verbinden mit ComfyUI...")
+        #await ctx.info("Verbinden mit ComfyUI...")
 
         return await _comfyui_generate(comfy, ctx, workflow, timeout)
 
@@ -203,7 +208,7 @@ async def generate_image(
         width: int = 512,
         seed: int=207522777251329,
         timeout: Annotated[int, "Sekunden"] = 300,
-) -> fastmcp.Image:
+) -> Image:
     """Bildgenerierungstool: Generiert ein Bild ausschließlich auf Grundlage des übergebenen Text-Prompts.
     Dieses Tool kann vorherige Bilder nicht sehen!"""
 
@@ -220,7 +225,7 @@ async def generate_image(
         workflow["5"]["inputs"]["height"] = height
         workflow["5"]["inputs"]["width"] = width
 
-        await ctx.info("Verbinden mit ComfyUI...")
+        #await ctx.info("Verbinden mit ComfyUI...")
 
         return await _comfyui_generate(comfy, ctx, workflow, timeout)
 
@@ -229,31 +234,36 @@ async def generate_image(
         comfy.free_models()
 
 
-async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> fastmcp.Image:
+async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Image:
 
-    queue = asyncio.Queue[Dict]()
+    queue = asyncio.Queue[ComfyUIEvent|None]()
 
-    async def listener(queue: asyncio.Queue[Dict]):
+    async def listener(queue: asyncio.Queue[ComfyUIEvent|None]):
         while True:
             event = await queue.get()
-            if event["type"] == "progress":
-                progress = event["data"]["value"]
-                max = event["data"]["max"]
-                await ctx.info(f"Progress: {progress}/{max}")
+            if event is None:
+                break
+            if isinstance(event, ComfyUIProgress):
+                await ctx.report_progress(event.current, event.total)
+            if isinstance(event, ComfyUIImage):
+                await ctx.info(message="preview_image", extra={
+                    "base64": base64.b64encode(event.image_bytes).decode('utf-8'),
+                    "type": "png",
+                })
+
 
 
     await comfy.connect()
     task1 = asyncio.create_task(comfy.queue(workflow, timeout, queue))
     task2 = asyncio.create_task(listener(queue))
 
-    await asyncio.wait([task1, task2], return_when=asyncio.FIRST_COMPLETED)
+    #await ctx.info(f"Bild wird generiert...")
 
-    task2.cancel()
-    image_bytes = task1.result()
+    image_bytes, _ = await asyncio.gather(task1, task2)
 
     await comfy.close()
 
-    return fastmcp.Image(
+    return Image(
         data=image_bytes,
         format="png",
     )
@@ -263,6 +273,8 @@ async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeou
 def free_image_generation_vram(including_execution_cache: bool = False) -> bool:
 
     ComfyUI().free_models(including_execution_cache)
+
+    time.sleep(3)
 
     return True
 

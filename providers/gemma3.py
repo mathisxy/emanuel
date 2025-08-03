@@ -6,20 +6,19 @@ import os
 import re
 import secrets
 import time
-from collections.abc import Callable
+from typing import List, Dict
 
+import GPUtil
+import fastmcp
 import tiktoken
 from fastmcp import Client
 from fastmcp.client.logging import LogMessage
+from mcp import Tool
 from mcp.server.fastmcp.exceptions import ToolError
 from ollama import AsyncClient
-from typing import List, Dict, Awaitable, Tuple
 
-from mcp import Tool
-
-import GPUtil
-
-from discord_message import DiscordMessage, DiscordMessageTmp, DiscordMessageReply, DiscordMessageFile
+from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
+    DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp
 
 
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
@@ -149,21 +148,28 @@ class OllamaChat:
 
 ollama_chat: Dict[str, OllamaChat] = {}
 
-async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage], channel: str):
+async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str):
 
     try:
 
         check_free_vram(required_gb=10)
 
-        async def log_handler(message: LogMessage):
-            print(f"EVENT: {message.data}")
-            await queue.put(DiscordMessageTmp(str(message.data)))
+        async def log_handler(message: fastmcp.client.logging.LogMessage):
+            if message.data.get("msg") == "preview_image":
+                image_base64 = message.data.get("extra").get("base64")
+                image_type = message.data.get("extra").get("type")
+                image_bytes = base64.b64decode(image_base64)
+                await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", key="preview"))
+            else:
+                print(f"EVENT: {message.data}")
+                await queue.put(DiscordMessageReplyTmp(value=str(message.data.get("msg")), key=message.level.lower()))
+        async def progress_handler(progress: float, total: float|None, message: str|None):
+            print(f"PROGRESS: {progress}/{total}:{message}")
+            await queue.put(DiscordMessageProgressTmp(progress=progress, total=total, key="progress"))
 
-        client = Client(os.getenv("MCP_SERVER_URL"), log_handler=log_handler,)
+        client = Client(os.getenv("MCP_SERVER_URL"), log_handler=log_handler, progress_handler=progress_handler)
 
         async with client:
-
-
 
             chat = ollama_chat.setdefault(channel, OllamaChat())
 
@@ -206,10 +212,10 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         try:
                             result = await client.call_tool(name, arguments)
 
-                            if result[0].type == "image":
+                            if result.content[0].type == "image":
 
-                                image_content = base64.b64decode(result[0].data)
-                                media_type = result[0].mimeType
+                                image_content = base64.b64decode(result.content[0].data)
+                                media_type = result.content[0].mimeType
                                 ext = mimetypes.guess_extension(media_type)
 
                                 filename = f"{secrets.token_urlsafe(8)}{ext}"
@@ -222,7 +228,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                                     f.write(image_content)
 
                             else:
-                                tool_results.append({name: json.loads(result[0].text)})
+                                tool_results.append({name: json.loads(result.content[0].text)})
 
                         except ToolError as e:
                             time.sleep(7) #Damit VRAM ggf. wieder freigegeben wird
@@ -253,7 +259,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
     except Exception as e:
         print(e)
-        await queue.put(DiscordMessageTmp(str(e)))
+        await queue.put(DiscordMessageReplyTmp(value=str(e), key="error"))
 
 
 def extract_tool_calls(text: str) -> List[Dict]:

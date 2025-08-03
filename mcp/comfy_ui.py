@@ -2,12 +2,29 @@ import asyncio
 import io
 import json
 import uuid
-from typing import Dict, Annotated, Callable, Awaitable
+from dataclasses import dataclass
+from typing import Dict
 
 import requests
 import websockets
 from websockets import ConnectionClosed
 from PIL import Image
+
+
+@dataclass
+class ComfyUIEvent:
+    pass
+
+@dataclass
+class ComfyUIProgress(ComfyUIEvent):
+    current: float
+    total: float
+
+@dataclass
+class ComfyUIImage(ComfyUIEvent):
+    image_bytes: bytes
+    type = "png"
+
 
 class ComfyUI:
     def __init__(self, domain: str = '127.0.0.1:8188', http_prefix="http://"):
@@ -33,7 +50,7 @@ class ComfyUI:
         response.raise_for_status()
         return response.json()["name"]
 
-    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[Dict]|None = None) -> bytes:
+    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[ComfyUIEvent|None]|None = None) -> bytes:
         prompt_id = str(uuid.uuid4())
         p = {
             "prompt": prompt,
@@ -44,7 +61,9 @@ class ComfyUI:
         requests.post(f"{self.http_prefix}{self.domain}/prompt", json=p)
 
         try:
-            async with asyncio.timeout(timeout):  # Python 3.11+
+            async with asyncio.timeout(timeout):
+                progress: float = 0
+
                 while True:
                     out = await self.ws.recv()
 
@@ -52,23 +71,37 @@ class ComfyUI:
                         msg = json.loads(out)
                         print("Status:", msg)
 
-                        if events:
-                            await events.put(msg)
+                        if msg.get("type") == "progress":
+                            current = float(msg["data"]["value"])
+                            total = float(msg["data"]["max"])
+                            progress = current/total
+
+                            if events:
+                                await events.put(ComfyUIProgress(current, total))
 
                         if msg.get("type") == "execution_error":
                             raise RuntimeError(f"ComfyUI execution error: {msg}")
 
-                        if msg.get("type") == "execution_success" and msg["data"].get("prompt_id") == prompt_id:
-                            raise RuntimeError("Execution finished but no image was received.")
+                        #if msg.get("type") == "execution_success" and msg["data"].get("prompt_id") == prompt_id:
+                        #    raise RuntimeError("Execution finished but no image was received.")
 
                         if msg.get("type") == "execution_interrupted":
                             raise RuntimeError(f"Die Bildgenerierung wurde unterbrochen")
 
                     else:
-                        # Binärdaten (vermutlich Bild)
                         print("BINÄRDATEN")
-                        image_bytes = out[8:]  # Skip header
-                        return image_bytes
+                        print(f"HEADER: {out[:8]}")
+                        image_bytes = out[8:]
+                        print(f"PROGRESS: {progress}")
+                        if progress == 1:
+                            if events:
+                                await events.put(None)
+                            return image_bytes
+                        elif events:
+                            await events.put(ComfyUIImage(image_bytes=image_bytes))
+
+                        #image_bytes = out[8:]  # Skip header
+                        #return image_bytes
         except asyncio.TimeoutError:
             raise TimeoutError("Timed out waiting for ComfyUI response.")
         except ConnectionClosed as e:
