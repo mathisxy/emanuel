@@ -68,18 +68,29 @@ class DiscordTemporaryMessagesController:
             if isinstance(message, DiscordMessageFileTmp):
                 file = discord.File(io.BytesIO(message.value), filename=message.filename)
                 if message.key in self.messages.keys():
-                    asyncio.create_task(self.messages[message.key].delete())
-                    print("DELETED TEMP FILE")
+                    embeds = self.messages[message.key].embeds
+                    if embeds:
+                        embed = embeds[0]
+                        embed.set_image(url=f"attachment://{message.filename}")
+                        await self.messages[message.key].edit(embed=embed, attachments=[file])
+                    else:
+                        await self.messages[message.key].edit(attachments=[file])
+                    print("EDITED TEMP FILE")
                     print(self.messages)
-                self.messages[message.key] = await self.channel.send(file=file)
-                print("ADDED TEMP FILE")
-                print(self.messages)
+                else:
+                    self.messages[message.key] = await self.channel.send(file=file)
+                    print("ADDED TEMP FILE")
+                    print(self.messages)
             else:
                 embed = discord.Embed(
                     description=message.value,
                     color=discord.Color.dark_gray()
                 )
                 if message.key in self.messages.keys():
+                    embeds = self.messages[message.key].embeds
+                    if embeds:
+                        embed = embeds[0]
+                        embed.description = message.value
                     await self.messages[message.key].edit(embed=embed)
                     print("EDITED TEMP MESSAGE")
                     print(self.messages)

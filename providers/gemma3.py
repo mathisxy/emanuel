@@ -5,6 +5,7 @@ import mimetypes
 import os
 import re
 import secrets
+import time
 from typing import List, Dict
 
 import GPUtil
@@ -150,14 +151,12 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
     try:
 
-        check_free_vram(required_gb=10)
-
         async def log_handler(message: fastmcp.client.logging.LogMessage):
             if message.data.get("msg") == "preview_image":
                 image_base64 = message.data.get("extra").get("base64")
                 image_type = message.data.get("extra").get("type")
                 image_bytes = base64.b64decode(image_base64)
-                await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", key="preview"))
+                await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", key="progress"))
             else:
                 print(f"EVENT: {message.data}")
                 await queue.put(DiscordMessageReplyTmp(value=str(message.data.get("msg")), key=message.level.lower()))
@@ -185,6 +184,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
             print(chat.history)
 
             for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
+
+                await wait_for_vram(required_gb=10)
 
                 response = await call_ollama(chat)
 
@@ -230,8 +231,6 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
-                            await asyncio.sleep(10) #Damit VRAM ggf. wieder freigegeben wird
-                            print("Auf VRAM gewartet")
                             tool_results.append({name: str(e)})
 
                     chat.history.append({"role": "assistant", "content": response})
@@ -285,7 +284,7 @@ ollama_lock = asyncio.Lock()
 
 import pynvml
 
-def check_free_vram(required_gb=8):
+def check_free_vram(required_gb:float=8):
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Nur GPU 0
     info = pynvml.nvmlDeviceGetMemoryInfo(handle)
@@ -293,6 +292,20 @@ def check_free_vram(required_gb=8):
     if free_gb < required_gb:
         raise RuntimeError(f"Nicht genug VRAM: {free_gb:.2f} GB frei, {required_gb} GB benötigt")
     print(f"Genug VRAM vorhanden: {free_gb:.2f} GB frei")
+
+async def wait_for_vram(required_gb:float=8, timeout:float=10, interval:float=1):
+
+    start = time.time()
+
+    while True:
+        try:
+            check_free_vram(required_gb=required_gb)
+            break
+        except RuntimeError as e:
+            if (time.time() - start) >= timeout:
+                raise TimeoutError(f"Timeout: {e}")
+            else:
+                await asyncio.sleep(interval)
 
 async def call_ollama(chat: OllamaChat) -> str:
 
