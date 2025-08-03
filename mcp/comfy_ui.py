@@ -9,6 +9,8 @@ import requests
 import websockets
 from websockets import ConnectionClosed
 from PIL import Image
+from enum import IntEnum
+
 
 
 @dataclass
@@ -25,6 +27,9 @@ class ComfyUIImage(ComfyUIEvent):
     image_bytes: bytes
     type = "png"
 
+class ComfyUIMessageType(IntEnum):
+    PREVIEW = 1
+    FINAL = 2
 
 class ComfyUI:
     def __init__(self, domain: str = '127.0.0.1:8188', http_prefix="http://"):
@@ -62,7 +67,6 @@ class ComfyUI:
 
         try:
             async with asyncio.timeout(timeout):
-                progress: float = 0
 
                 while True:
                     out = await self.ws.recv()
@@ -74,34 +78,29 @@ class ComfyUI:
                         if msg.get("type") == "progress":
                             current = float(msg["data"]["value"])
                             total = float(msg["data"]["max"])
-                            progress = current/total
 
                             if events:
                                 await events.put(ComfyUIProgress(current, total))
 
                         if msg.get("type") == "execution_error":
-                            raise RuntimeError(f"ComfyUI execution error: {msg}")
-
-                        #if msg.get("type") == "execution_success" and msg["data"].get("prompt_id") == prompt_id:
-                        #    raise RuntimeError("Execution finished but no image was received.")
+                            raise RuntimeError(f"ComfyUI execution error: {msg.get('data').get('exception_message')}")
 
                         if msg.get("type") == "execution_interrupted":
-                            raise RuntimeError(f"Die Bildgenerierung wurde unterbrochen")
+                            raise RuntimeError(f"Die Bildgenerierung wurde unterbrochen vom Nutzer")
 
                     else:
                         print("BINÄRDATEN")
                         print(f"HEADER: {out[:8]}")
                         image_bytes = out[8:]
-                        print(f"PROGRESS: {progress}")
-                        if progress == 1:
+                        header_type = int.from_bytes(out[4:8], byteorder='big')
+                        if header_type == ComfyUIMessageType.PREVIEW:
+                            if events:
+                                await events.put(ComfyUIImage(image_bytes=image_bytes))
+                        elif header_type == ComfyUIMessageType.FINAL:
                             if events:
                                 await events.put(None)
                             return image_bytes
-                        elif events:
-                            await events.put(ComfyUIImage(image_bytes=image_bytes))
 
-                        #image_bytes = out[8:]  # Skip header
-                        #return image_bytes
         except asyncio.TimeoutError:
             raise TimeoutError("Timed out waiting for ComfyUI response.")
         except ConnectionClosed as e:

@@ -5,7 +5,6 @@ import mimetypes
 import os
 import re
 import secrets
-import time
 from typing import List, Dict
 
 import GPUtil
@@ -14,7 +13,6 @@ import tiktoken
 from fastmcp import Client
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
-from mcp.server.fastmcp.exceptions import ToolError
 from ollama import AsyncClient
 
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
@@ -230,8 +228,10 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                             else:
                                 tool_results.append({name: json.loads(result.content[0].text)})
 
-                        except ToolError as e:
-                            time.sleep(7) #Damit VRAM ggf. wieder freigegeben wird
+                        except Exception as e:
+                            print(f"TOOL: {name} ERROR: {e}")
+                            await asyncio.sleep(10) #Damit VRAM ggf. wieder freigegeben wird
+                            print("Auf VRAM gewartet")
                             tool_results.append({name: str(e)})
 
                     chat.history.append({"role": "assistant", "content": response})
@@ -258,7 +258,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                     break
 
     except Exception as e:
-        print(e)
+        print(f"KEIN TOOLERROR: {e}")
         await queue.put(DiscordMessageReplyTmp(value=str(e), key="error"))
 
 

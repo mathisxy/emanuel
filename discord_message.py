@@ -56,7 +56,7 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
 
 class DiscordTemporaryMessagesController:
 
-    def __init__(self, channel: TextChannel, deletion_delay=7):
+    def __init__(self, channel: TextChannel, deletion_delay=3):
         self.channel = channel
         self._lock = asyncio.Lock()
         self.messages: Dict[str, Message] = {}

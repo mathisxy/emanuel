@@ -13,6 +13,8 @@ from fastmcp.utilities.types import Image
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
+from torchgen.api.types import CType
+
 from comfy_ui import ComfyUI
 from comfy_ui import ComfyUIEvent, ComfyUIProgress
 from comfy_ui import ComfyUIImage
@@ -212,6 +214,8 @@ async def generate_image(
     """Bildgenerierungstool: Generiert ein Bild ausschließlich auf Grundlage des übergebenen Text-Prompts.
     Dieses Tool kann vorherige Bilder nicht sehen!"""
 
+    #raise Exception("Das ist ein Test Fehler, bitte sag es dem user wenn du ihn siehst")
+
     comfy = ComfyUI()
 
     try:
@@ -254,11 +258,13 @@ async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeou
 
 
     await comfy.connect()
+
+    await asyncio.sleep(1) # Für VRAM
+
     task1 = asyncio.create_task(comfy.queue(workflow, timeout, queue))
     task2 = asyncio.create_task(listener(queue))
 
     #await ctx.info(f"Bild wird generiert...")
-
     image_bytes, _ = await asyncio.gather(task1, task2)
 
     await comfy.close()
@@ -274,7 +280,7 @@ def free_image_generation_vram(including_execution_cache: bool = False) -> bool:
 
     ComfyUI().free_models(including_execution_cache)
 
-    time.sleep(3)
+    time.sleep(1)
 
     return True
 
@@ -285,6 +291,10 @@ def interrupt_image_generation() -> bool:
     comfy = ComfyUI()
 
     comfy.interrupt()
+
+    time.sleep(1)
+
+    comfy.free_models()
 
     return True
 
