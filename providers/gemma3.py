@@ -70,6 +70,9 @@ Alle Treffer werden mit JSON geparst und dann aus der Antwort ausgeschnitten.
 Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte aufgerufen.
 Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit direkt nochmal aufgerufen.
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
+
+Weitere Anmerkungen:
+Du schreibst NIEMALS solche Tags wie "<start_of_image>" in den Chat, auch wenn so einer in vorherigen Nachrichten vorkommt!
 """
 
 
