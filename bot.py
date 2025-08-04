@@ -9,6 +9,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import os
 
+from discord_buttons import ProgressButton
 from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
     DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 
@@ -65,7 +66,12 @@ async def handle_message(message):
                             if event is None:
                                 break
                             if isinstance(event, DiscordMessageTmpMixin):
-                                await tmp_controller.set_message(event)
+
+                                view = None
+                                if event.key == "progress":
+                                    view = ProgressButton()
+
+                                await tmp_controller.set_message(event, view)
 
                             elif isinstance(event, DiscordMessageFile):
 

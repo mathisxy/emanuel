@@ -63,7 +63,7 @@ class DiscordTemporaryMessagesController:
         self.deletion_delay = deletion_delay
 
 
-    async def set_message(self, message: DiscordMessageTmpProtocol):
+    async def set_message(self, message: DiscordMessageTmpProtocol, view: discord.ui.View = None):
         async with self._lock:
             if isinstance(message, DiscordMessageFileTmp):
                 file = discord.File(io.BytesIO(message.value), filename=message.filename)
@@ -72,13 +72,13 @@ class DiscordTemporaryMessagesController:
                     if embeds:
                         embed = embeds[0]
                         embed.set_image(url=f"attachment://{message.filename}")
-                        await self.messages[message.key].edit(embed=embed, attachments=[file])
+                        await self.messages[message.key].edit(embed=embed, view=view, attachments=[file])
                     else:
-                        await self.messages[message.key].edit(attachments=[file])
+                        await self.messages[message.key].edit(view=view, attachments=[file])
                     print("EDITED TEMP FILE")
                     print(self.messages)
                 else:
-                    self.messages[message.key] = await self.channel.send(file=file)
+                    self.messages[message.key] = await self.channel.send(view=view, file=file)
                     print("ADDED TEMP FILE")
                     print(self.messages)
             else:
@@ -91,11 +91,11 @@ class DiscordTemporaryMessagesController:
                     if embeds:
                         embed = embeds[0]
                         embed.description = message.value
-                    await self.messages[message.key].edit(embed=embed)
+                    await self.messages[message.key].edit(view=view, embed=embed)
                     print("EDITED TEMP MESSAGE")
                     print(self.messages)
                 else:
-                    self.messages[message.key] = await self.channel.send(embed=embed)
+                    self.messages[message.key] = await self.channel.send(view=view, embed=embed)
                     print("ADDED TEMP MESSAGE")
                     print(self.messages)
 
