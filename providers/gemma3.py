@@ -72,7 +72,7 @@ Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 
 Weitere Anmerkungen:
-Du schreibst NIEMALS solche Tags wie "<start_of_image>" in den Chat, auch wenn so einer in vorherigen Nachrichten vorkommt!
+Checke deine Nachrichten am Schluss immer nochmal und entferne immer alle Tags wie <start_of_image>
 """
 
 
@@ -188,7 +188,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
             for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
 
-                await wait_for_vram(required_gb=10)
+                await wait_for_vram(required_gb=11)
 
                 response = await call_ollama(chat)
 

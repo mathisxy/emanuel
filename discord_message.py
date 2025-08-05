@@ -56,11 +56,11 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
 
 class DiscordTemporaryMessagesController:
 
-    def __init__(self, channel: TextChannel, deletion_delay=3):
+    def __init__(self, channel: TextChannel, error_deletion_delay=10):
         self.channel = channel
         self._lock = asyncio.Lock()
         self.messages: Dict[str, Message] = {}
-        self.deletion_delay = deletion_delay
+        self.error_deletion_delay = error_deletion_delay
 
 
     async def set_message(self, message: DiscordMessageTmpProtocol, view: discord.ui.View = None):
@@ -106,11 +106,12 @@ class DiscordTemporaryMessagesController:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         async with self._lock:
-            if self.messages:
-                await asyncio.sleep(self.deletion_delay)
             print("DELETING TEMP MESSAGES")
             print(self.messages)
-            for message in self.messages.values():
+            for key, message in self.messages.items():
+                if key == "error":
+                    await asyncio.sleep(self.error_deletion_delay)
+
                 await message.delete()
 
         self.messages = {}

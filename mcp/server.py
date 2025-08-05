@@ -8,12 +8,10 @@ import time
 from enum import Enum
 from typing import List, Literal, Dict, Annotated
 
-import fastmcp
 from fastmcp.utilities.types import Image
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
-from torchgen.api.types import CType
 
 from comfy_ui import ComfyUI
 from comfy_ui import ComfyUIEvent, ComfyUIProgress
@@ -163,45 +161,6 @@ def call_police(message: str) -> str:
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
 
 @mcp.tool()
-async def generate_image_from_reference_image(
-        ctx: Context,
-        model: Literal["FLUX.1-kontext-Q6"],
-        reference_image: Annotated[str, "Exakten Dateinamen angeben"],
-        prompt: str,
-        seed: int=207522777251329,
-        guidance: float = 2.5,
-        timeout: Annotated[int, "Sekunden"] = 300,
-) -> Image:
-    """Bildbearbeitungstool: Generiert ein neues Bild auf Grundlage des Referenzbildes und des Text-Prompts"""
-
-    comfy = ComfyUI()
-
-    try:
-        with open(f"comfy-ui/{model}.json", "r") as file:
-            workflow = json.load(file)
-
-        print(workflow)
-
-        workflow["6"]["inputs"]["text"] = prompt
-        workflow["3"]["inputs"]["seed"] = seed
-        workflow["24"]["inputs"]["guidance"] = guidance
-
-        await comfy.connect()
-
-        with open(f"../downloads/{reference_image}", "rb") as f:
-            image_bytes = f.read()
-            upload_image_name = comfy.upload_image(image_bytes)
-            print(upload_image_name)
-            workflow["16"]["inputs"]["image"] = upload_image_name
-
-        #await ctx.info("Verbinden mit ComfyUI...")
-
-        return await _comfyui_generate(comfy, ctx, workflow, timeout)
-
-    finally:
-        comfy.free_models()
-
-@mcp.tool()
 async def generate_image(
         ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-dev-Q6"],
@@ -236,6 +195,128 @@ async def generate_image(
 
     finally:
         comfy.free_models()
+
+@mcp.tool()
+async def edit_image(
+        ctx: Context,
+        image: Annotated[str, "Exakten Dateinamen angeben"],
+        model: Literal["FLUX.1-kontext-Q6"],
+        prompt: str,
+        seed: int=207522777251329,
+        guidance: float = 2.5,
+        timeout: Annotated[int, "Sekunden"] = 300,
+) -> Image:
+    """Bildbearbeitungstool: Generiert ein neues Bild auf Grundlage des übergebenen Bildes und des Text-Prompts"""
+
+    comfy = ComfyUI()
+
+    try:
+        with open(f"comfy-ui/{model}.json", "r") as file:
+            workflow = json.load(file)
+
+        print(workflow)
+
+        workflow["6"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["seed"] = seed
+        workflow["24"]["inputs"]["guidance"] = guidance
+
+        await comfy.connect()
+
+        with open(f"../downloads/{image}", "rb") as f:
+            image_bytes = f.read()
+            upload_image_name = comfy.upload_image(image_bytes)
+            print(upload_image_name)
+            workflow["16"]["inputs"]["image"] = upload_image_name
+
+
+        #await ctx.info("Verbinden mit ComfyUI...")
+
+        return await _comfyui_generate(comfy, ctx, workflow, timeout)
+
+    finally:
+        comfy.free_models()
+
+
+@mcp.tool
+async def remove_image_background(
+        ctx: Context,
+        image: Annotated[str, "Exakten Dateinamen angeben"],
+        model: Literal["RMBG-2.0"],
+        sensitivity: float = 1.0,
+        process_res: int = 1024,
+        mask_blur: int = 0,
+        mask_offset: int = 0,
+        invert_output: bool = False,
+        refine_foreground: bool = False,
+        background: Literal["Alpha", "Color"] = "Alpha",
+        background_color: Literal["black", "white", "red", "green", "blue"] = "black",
+        timeout: Annotated[int, "Sekunden"] = 30,
+) -> Image:
+    """Funktioniert noch nicht!!"""
+
+
+    comfy = ComfyUI()
+
+    try:
+        with open(f"comfy-ui/{model}.json", "r") as file:
+            workflow = json.load(file)
+
+        print(workflow)
+
+        # 1. RMBG Node finden
+        rmbg_node_id = None
+        for node_id, node in workflow.items():
+            if node.get("class_type") == "RMBG":
+                rmbg_node_id = node_id
+                break
+
+        if not rmbg_node_id:
+            raise ValueError("RMBG-Node nicht im Workflow gefunden!")
+
+        # 2. Parameter updaten
+        rmbg_node = workflow[rmbg_node_id]
+        rmbg_node["inputs"]["model"] = model
+        rmbg_node["inputs"]["sensitivity"] = sensitivity
+        rmbg_node["inputs"]["process_res"] = process_res
+        rmbg_node["inputs"]["mask_blur"] = mask_blur
+        rmbg_node["inputs"]["mask_offset"] = mask_offset
+        rmbg_node["inputs"]["invert_output"] = invert_output
+        rmbg_node["inputs"]["refine_foreground"] = refine_foreground
+        rmbg_node["inputs"]["background"] = background
+
+        # 3. Farbe setzen (wenn Color gewählt)
+        if background == "Color":
+            # Finde passende Color-Node, die mit "background_color" verbunden ist
+            for node_id, node in workflow.items():
+                if node.get("class_type") == "ColorInput":
+                    if "color" in node.get("inputs", {}):
+                        node["inputs"]["color"] = background_color
+                        break
+
+        load_image_node_id = None
+        for node_id, node in workflow.items():
+            if node.get("class_type") == "LoadImage":
+                load_image_node_id = node_id
+                break
+
+        if not load_image_node_id:
+            raise ValueError("LoadImage-Node nicht im Workflow gefunden!")
+
+
+        with open(f"../downloads/{image}", "rb") as f:
+            image_bytes = f.read()
+            upload_image_name = comfy.upload_image(image_bytes)
+            print(upload_image_name)
+            load_image_node = workflow[load_image_node_id]
+            load_image_node["inputs"]["image"] = image
+
+        await comfy.connect()
+
+        return await _comfyui_generate(comfy, ctx, workflow, timeout)
+
+    finally:
+        comfy.free_models(including_execution_cache=True)
+
 
 
 async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Image:
