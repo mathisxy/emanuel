@@ -35,7 +35,7 @@ class ComfyUI:
     def __init__(self, domain: str = '127.0.0.1:8188', http_prefix="http://"):
         self.domain = domain
         self.http_prefix = http_prefix
-        self.client_id = str(uuid.uuid4())
+        self.client_id = "mcp"#str(uuid.uuid4())
         self.ws = None
 
     async def connect(self):

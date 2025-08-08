@@ -252,7 +252,7 @@ async def remove_image_background(
         background_color: Literal["black", "white", "red", "green", "blue"] = "black",
         timeout: Annotated[int, "Sekunden"] = 30,
 ) -> Image:
-    """Funktioniert noch nicht!!"""
+    """Entfernt den Hintergrund des übergebenen Bildes"""
 
 
     comfy = ComfyUI()
@@ -308,7 +308,7 @@ async def remove_image_background(
             upload_image_name = comfy.upload_image(image_bytes)
             print(upload_image_name)
             load_image_node = workflow[load_image_node_id]
-            load_image_node["inputs"]["image"] = image
+            load_image_node["inputs"]["image"] = upload_image_name
 
         await comfy.connect()
 
@@ -357,7 +357,7 @@ async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeou
 
 
 @mcp.tool()
-def free_image_generation_vram(including_execution_cache: bool = False) -> bool:
+def free_image_generation_vram(including_execution_cache: bool = True) -> bool:
 
     ComfyUI().free_models(including_execution_cache)
 

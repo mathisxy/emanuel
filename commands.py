@@ -44,8 +44,8 @@ async def on_ready():
 async def emanuel(interaction: discord.Interaction, action: app_commands.Choice[str]):
 
     try:
-        action = EmanuelAction(action.name)
-        await interaction.response.send_message(await EmanuelActions.execute(action), ephemeral=True)
+        emanuel_action = EmanuelAction(action.value)
+        await interaction.response.send_message(await EmanuelActions.execute(emanuel_action), ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}", ephemeral=True)
 

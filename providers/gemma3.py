@@ -72,7 +72,7 @@ Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 
 Weitere Anmerkungen:
-Checke deine Nachrichten am Schluss immer nochmal und entferne immer alle Tags wie <start_of_image>
+Checke deine Nachrichten am Schluss immer nochmal und entferne immer alle <start_of_image> Tags!
 """
 
 

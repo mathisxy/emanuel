@@ -1,5 +1,6 @@
 import os
 import subprocess
+import traceback
 from enum import Enum
 from fastmcp import Client
 
@@ -11,7 +12,7 @@ class EmanuelAction(str, Enum):
     UNLOAD_COMFY = "unload_comfy_models"
 
 
-WORKER_SERVICE = os.getenv("WORKER_SERVICE")
+WORKER_SERVICE = os.getenv("WORKER_SERVICE", "emanuel")
 
 class EmanuelActions:
 
@@ -47,7 +48,8 @@ class EmanuelActions:
                     if result.returncode == 0:
                         return f"✅ {action.name} erfolgreich ausgeführt."
                     else:
-                        return f"❌ Fehler:\n```\n{result.stderr.strip()}\n```"
+                        return f"❌ Fehler:\n```\n{result.stderr}\n```"
 
         except Exception as e:
+            print(traceback.format_exc())
             return f"❌ Abrakadabra-Ausnahmefehler: {str(e)}"
