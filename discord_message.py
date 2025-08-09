@@ -50,7 +50,7 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
         percent = self.progress / self.total if self.total else 0
         filled_length = int(self.length * percent)
         bar = self.filled_char * filled_length + self.empty_char * (self.length - filled_length)
-        self.value = f"[{bar}] {int(percent * 100)}% ({self.progress}/{self.total})"
+        self.value = f"[{bar}] {int(percent * 100)}% ({int(self.progress)}/{int(self.total)})"
 
 
 
