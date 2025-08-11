@@ -8,7 +8,7 @@ import time
 from enum import Enum
 from typing import List, Literal, Dict, Annotated
 
-from fastmcp.utilities.types import Image
+from fastmcp.utilities.types import Image, Audio
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
@@ -122,7 +122,7 @@ def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal"
     return domain, port
 
 
-@mcp.tool()
+@mcp.tool
 def update_enshrouded_server() -> str:
     """Updated den Enshrouded Server"""
 
@@ -155,12 +155,12 @@ def update_enshrouded_server() -> str:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
 
 
-@mcp.tool()
+@mcp.tool
 def call_police(message: str) -> str:
     """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
 
-@mcp.tool()
+@mcp.tool
 async def generate_image(
         ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6", "FLUX.1-dev-Q6"],
@@ -190,13 +190,14 @@ async def generate_image(
 
         #await ctx.info("Verbinden mit ComfyUI...")
 
-        return await _comfyui_generate(comfy, ctx, workflow, timeout)
+        return await _comfyui_generate_image(comfy, ctx, workflow, timeout)
 
 
     finally:
+        await asyncio.sleep(1)
         comfy.free_models()
 
-@mcp.tool()
+@mcp.tool
 async def edit_image(
         ctx: Context,
         image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -231,9 +232,10 @@ async def edit_image(
 
         #await ctx.info("Verbinden mit ComfyUI...")
 
-        return await _comfyui_generate(comfy, ctx, workflow, timeout)
+        return await _comfyui_generate_image(comfy, ctx, workflow, timeout)
 
     finally:
+        await asyncio.sleep(1)
         comfy.free_models()
 
 
@@ -312,14 +314,15 @@ async def remove_image_background(
 
         await comfy.connect()
 
-        return await _comfyui_generate(comfy, ctx, workflow, timeout)
+        return await _comfyui_generate_image(comfy, ctx, workflow, timeout)
 
     finally:
+        await asyncio.sleep(1)
         comfy.free_models(including_execution_cache=True)
 
 
 
-async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Image:
+async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Image:
 
     queue = asyncio.Queue[ComfyUIEvent|None]()
 
@@ -346,34 +349,111 @@ async def _comfyui_generate(comfy: ComfyUI, ctx: Context, workflow: Dict, timeou
     task2 = asyncio.create_task(listener(queue))
 
     #await ctx.info(f"Bild wird generiert...")
-    image_bytes, _ = await asyncio.gather(task1, task2)
+    comfyui_image, _ = await asyncio.gather(task1, task2)
 
     await comfy.close()
 
     return Image(
-        data=image_bytes,
+        data=comfyui_image.image_bytes,
         format="png",
     )
 
+@mcp.tool
+async def generate_audio(
+        ctx: Context,
+        model: Literal["ACE-Step-V1-3.5B"],
+        tags: Annotated[str, "Genres oder adjektive"],
+        songtext: str = "",
+        seconds: Annotated[float, "maximal 180"] = 120,
+        seed: int = 207522777251329,
+        steps: Annotated[int, "im Normalfall belassen"] = 50,
+        cfg: Annotated[float, "im Normalfall belassen"] = 5.0,
+        lyrics_strength: Annotated[float, "im Normalfall belassen"]  = 0.99,
+        timeout: Annotated[int, "Sekunden"] = 300,
+) -> Audio:
+    """Audiogenerierungstool: Generiert eine Audiodatei auf Grundlage von Tags und optionalem Songtext"""
 
-@mcp.tool()
-def free_image_generation_vram(including_execution_cache: bool = True) -> bool:
+    comfy = ComfyUI()
+
+    try:
+        # Audio-Workflow laden (basierend auf dem Screenshot)
+        with open(f"comfy-ui/{model}.json", "r") as file:
+            workflow = json.load(file)
+
+        print(workflow)
+
+        # Node 14 → Tags & Lyrics
+        workflow["14"]["inputs"]["tags"] = tags
+        workflow["14"]["inputs"]["lyrics"] = songtext
+        workflow["14"]["inputs"]["lyrics_strength"] = lyrics_strength
+
+        # Node 17 → Sekunden
+        workflow["17"]["inputs"]["seconds"] = seconds
+
+        # Node 52 → Seed, Steps, CFG
+        workflow["52"]["inputs"]["seed"] = seed
+        workflow["52"]["inputs"]["steps"] = steps
+        workflow["52"]["inputs"]["cfg"] = cfg
+
+        return await _comfyui_generate_audio(comfy, ctx, workflow, timeout)
+
+    except FileNotFoundError:
+        raise Exception(f"Audio-Workflow-Datei für Modell {model} nicht gefunden. Erwartet: comfy-ui/{model}.json")
+    except Exception as e:
+        raise Exception(f"Fehler bei der Audio-Generierung: {str(e)}")
+    finally:
+        await asyncio.sleep(1)
+        comfy.free_models(including_execution_cache=True)
+
+
+async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Audio:
+    """Hilfsfunktion für die Audio-Generierung mit ComfyUI"""
+
+    queue = asyncio.Queue[ComfyUIEvent|None]()
+
+    async def listener(queue: asyncio.Queue[ComfyUIEvent|None]):
+        while True:
+            event = await queue.get()
+            if event is None:
+                break
+            if isinstance(event, ComfyUIProgress):
+                await ctx.report_progress(event.current, event.total)
+
+    await comfy.connect()
+    await asyncio.sleep(1)  # Für VRAM
+
+    task1 = asyncio.create_task(comfy.queue(workflow, timeout, queue))
+    task2 = asyncio.create_task(listener(queue))
+
+    #await ctx.info(f"Audio wird generiert...")
+    comfyui_audio, _ = await asyncio.gather(task1, task2)
+
+    await comfy.close()
+
+    return Audio(
+        data=comfyui_audio.audio_bytes,
+        format=comfyui_audio.audio_type,
+    )
+
+
+@mcp.tool
+async def free_image_generation_vram(including_execution_cache: bool = True) -> bool:
 
     ComfyUI().free_models(including_execution_cache)
 
-    time.sleep(1)
+    await asyncio.sleep(1)
 
     return True
 
 
-@mcp.tool()
-def interrupt_image_generation() -> bool:
+@mcp.tool
+async def interrupt_image_generation() -> bool:
     #raise Exception("Test")
     comfy = ComfyUI()
 
     comfy.interrupt()
 
-    time.sleep(1)
+    await asyncio.sleep(1)
 
     comfy.free_models()
 

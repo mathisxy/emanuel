@@ -1,5 +1,6 @@
 import asyncio
 import io
+import time
 from dataclasses import dataclass, field
 from typing import Dict, runtime_checkable, Protocol
 
@@ -56,14 +57,27 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
 
 class DiscordTemporaryMessagesController:
 
-    def __init__(self, channel: TextChannel, error_deletion_delay=10):
+    def __init__(self, channel: TextChannel, error_deletion_delay:float=10, min_update_interval:float=1):
         self.channel = channel
         self._lock = asyncio.Lock()
         self.messages: Dict[str, Message] = {}
         self.error_deletion_delay = error_deletion_delay
+        self.min_update_interval = min_update_interval
+        self._last_update: Dict[str, float] = {}
 
 
     async def set_message(self, message: DiscordMessageTmpProtocol, view: discord.ui.View = None):
+
+        now = time.monotonic()
+
+        # Wenn es sich um Progress handelt → throttlen
+        if isinstance(message, DiscordMessageProgressTmp):
+            last = self._last_update.get(message.key, 0)
+            # Update nur, wenn Intervall überschritten oder 100% erreicht
+            if now - last < self.min_update_interval and message.progress < message.total:
+                return
+            self._last_update[message.key] = now
+
         async with self._lock:
             if isinstance(message, DiscordMessageFileTmp):
                 file = discord.File(io.BytesIO(message.value), filename=message.filename)

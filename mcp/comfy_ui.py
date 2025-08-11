@@ -3,14 +3,13 @@ import io
 import json
 import uuid
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Annotated
 
 import requests
 import websockets
 from websockets import ConnectionClosed
 from PIL import Image
 from enum import IntEnum
-
 
 
 @dataclass
@@ -25,11 +24,17 @@ class ComfyUIProgress(ComfyUIEvent):
 @dataclass
 class ComfyUIImage(ComfyUIEvent):
     image_bytes: bytes
-    type = "png"
+    image_type = "png"
+
+@dataclass
+class ComfyUIAudio(ComfyUIEvent):
+    audio_bytes: bytes
+    audio_type = "mpeg"
 
 class ComfyUIMessageType(IntEnum):
     PREVIEW = 1
     FINAL = 2
+
 
 class ComfyUI:
     def __init__(self, domain: str = '127.0.0.1:8188', http_prefix="http://"):
@@ -55,7 +60,24 @@ class ComfyUI:
         response.raise_for_status()
         return response.json()["name"]
 
-    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[ComfyUIEvent|None]|None = None) -> bytes:
+    def download_file(self, filename: str, subfolder: str = "", folder_type: str = "output") -> bytes:
+        """Download audio file from ComfyUI server"""
+        params = {
+            "filename": filename,
+            "type": folder_type
+        }
+        if subfolder:
+            params["subfolder"] = subfolder
+
+        response = requests.get(
+            f"{self.http_prefix}{self.domain}/view",
+            params=params
+        )
+        response.raise_for_status()
+        print(len(response.content))
+        return response.content
+
+    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[ComfyUIEvent | None] | None = None) -> ComfyUIImage|ComfyUIAudio:
         prompt_id = str(uuid.uuid4())
         p = {
             "prompt": prompt,
@@ -82,6 +104,19 @@ class ComfyUI:
                             if events:
                                 await events.put(ComfyUIProgress(current, total))
 
+                        if msg.get("type") == "executed":
+                            if "audio" in msg.get("data", {}).get("output", {}):
+                                audio_info = msg["data"]["output"]["audio"][0]
+                                filename = audio_info["filename"]
+                                subfolder = audio_info.get("subfolder", "")
+
+                                # Download the audio file
+                                audio_bytes = self.download_file(filename, subfolder)
+
+                                if events:
+                                    await events.put(None)
+                                return ComfyUIAudio(audio_bytes=audio_bytes)
+
                         if msg.get("type") == "execution_error":
                             raise RuntimeError(f"ComfyUI execution error: {msg.get('data').get('exception_message')}")
 
@@ -99,7 +134,7 @@ class ComfyUI:
                         elif header_type == ComfyUIMessageType.FINAL:
                             if events:
                                 await events.put(None)
-                            return image_bytes
+                            return ComfyUIImage(image_bytes)
 
         except asyncio.TimeoutError:
             raise TimeoutError("Timed out waiting for ComfyUI response.")

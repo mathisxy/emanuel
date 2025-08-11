@@ -192,7 +192,15 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                 response = await call_ollama(chat)
 
-                tool_calls = extract_tool_calls(response)
+                try:
+                    tool_calls = extract_tool_calls(response)
+                except Exception as e:
+                    chat.history.append({"role": "assistant", "content": response})
+                    await queue.put(DiscordMessageReply(response))
+                    chat.history.append({"role": "system", "content": str(e)})
+                    print(chat.history)
+                    continue
+
 
                 if tool_calls:
 
@@ -202,6 +210,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                     tool_results = []
                     tool_image_results = []
+                    tool_file_results = []
 
                     for tool_call in tool_calls:
 
@@ -214,17 +223,24 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         try:
                             result = await client.call_tool(name, arguments)
 
-                            if result.content[0].type == "image":
+                            print(result.content[0].type)
+
+                            if result.content[0].type == "image" or result.content[0].type == "audio":
 
                                 image_content = base64.b64decode(result.content[0].data)
                                 media_type = result.content[0].mimeType
+                                print(media_type)
                                 ext = mimetypes.guess_extension(media_type)
+                                print(ext)
 
                                 filename = f"{secrets.token_urlsafe(8)}{ext}"
 
                                 file_info = image_content, filename
 
-                                tool_image_results.append(file_info)
+                                if result.content[0].type == "image":
+                                    tool_image_results.append(file_info)
+                                else:
+                                    tool_file_results.append(file_info)
 
                                 with open(os.path.join("downloads", filename), "wb") as f:
                                     f.write(image_content)
@@ -248,6 +264,10 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                     for image_content, filename in tool_image_results:
                         await queue.put(DiscordMessageFile(image_content, filename))
                         chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
+
+                    for file_content, filename in tool_file_results:
+                        await queue.put(DiscordMessageFile(file_content, filename))
+                        chat.history.append({"role": "assistant", "content": f"Du hast eine Datei gesendet: {filename}"})
 
 
                     print(chat.history)
@@ -274,8 +294,8 @@ def extract_tool_calls(text: str) -> List[Dict]:
         try:
             tool_call_data = json.loads(raw_json)
             tool_calls.append(tool_call_data)
-        except json.JSONDecodeError:
-            continue  # Falls ungültig, wird einfach übersprungen
+        except json.JSONDecodeError as e:
+            raise Exception(f"Fehler beim JSON Dekodieren des Tool Calls: {e}")
 
     return tool_calls
 
