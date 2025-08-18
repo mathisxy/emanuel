@@ -254,7 +254,7 @@ async def remove_image_background(
         background_color: Literal["black", "white", "red", "green", "blue"] = "black",
         timeout: Annotated[int, "Sekunden"] = 30,
 ) -> Image:
-    """Entfernt den Hintergrund des übergebenen Bildes"""
+    """Hintergrundentfernungstool: Entfernt den Hintergrund des übergebenen Bildes"""
 
 
     comfy = ComfyUI()
@@ -363,12 +363,12 @@ async def generate_audio(
         ctx: Context,
         model: Literal["ACE-Step-V1-3.5B"],
         tags: Annotated[str, "Genres oder adjektive"],
-        songtext: str = "",
+        songtext: Annotated[str, "Nutze Tags wie [instrumental] und [chorus]"] = "",
         seconds: Annotated[float, "maximal 180"] = 120,
         seed: int = 207522777251329,
-        steps: Annotated[int, "im Normalfall belassen"] = 50,
-        cfg: Annotated[float, "im Normalfall belassen"] = 5.0,
-        lyrics_strength: Annotated[float, "im Normalfall belassen"]  = 0.99,
+        #steps: Annotated[int, "im Normalfall belassen"] = 50,
+        #cfg: Annotated[float, "im Normalfall belassen"] = 5.0,
+        #lyrics_strength: Annotated[float, "im Normalfall belassen"]  = 0.99,
         timeout: Annotated[int, "Sekunden"] = 300,
 ) -> Audio:
     """Audiogenerierungstool: Generiert eine Audiodatei auf Grundlage von Tags und optionalem Songtext"""
@@ -385,15 +385,15 @@ async def generate_audio(
         # Node 14 → Tags & Lyrics
         workflow["14"]["inputs"]["tags"] = tags
         workflow["14"]["inputs"]["lyrics"] = songtext
-        workflow["14"]["inputs"]["lyrics_strength"] = lyrics_strength
+        #workflow["14"]["inputs"]["lyrics_strength"] = lyrics_strength
 
         # Node 17 → Sekunden
         workflow["17"]["inputs"]["seconds"] = seconds
 
         # Node 52 → Seed, Steps, CFG
         workflow["52"]["inputs"]["seed"] = seed
-        workflow["52"]["inputs"]["steps"] = steps
-        workflow["52"]["inputs"]["cfg"] = cfg
+        #workflow["52"]["inputs"]["steps"] = steps
+        #workflow["52"]["inputs"]["cfg"] = cfg
 
         return await _comfyui_generate_audio(comfy, ctx, workflow, timeout)
 
