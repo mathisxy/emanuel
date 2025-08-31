@@ -164,7 +164,7 @@ def call_police(message: str) -> str:
 async def generate_image(
         ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6", "FLUX.1-dev-Q6"],
-        prompt: Annotated[str, "Bildgenerierungs Prompt"],
+        image_generation_prompt: str,
         width: int = 512,
         height: int = 512,
         seed: int=207522777251329,
@@ -175,6 +175,9 @@ async def generate_image(
 
     #raise Exception("Das ist ein Test Fehler, bitte sag es dem user wenn du ihn siehst")
 
+    if width <= 0 or height <= 0:
+        raise Exception("Parameter width und height müssen größer sein als 0")
+
     comfy = ComfyUI()
 
     try:
@@ -183,7 +186,7 @@ async def generate_image(
 
         print(workflow)
 
-        workflow["6"]["inputs"]["text"] = prompt
+        workflow["6"]["inputs"]["text"] = image_generation_prompt
         workflow["3"]["inputs"]["seed"] = seed
         workflow["5"]["inputs"]["height"] = height
         workflow["5"]["inputs"]["width"] = width
@@ -200,9 +203,9 @@ async def generate_image(
 @mcp.tool
 async def edit_image(
         ctx: Context,
-        image: Annotated[str, "Exakten Dateinamen angeben"],
+        input_image: Annotated[str, "Exakten Dateinamen angeben"],
         model: Literal["FLUX.1-kontext-Q6"],
-        prompt: Annotated[str, "Bildgenerierungs Prompt"],
+        image_generation_prompt: str,
         seed: int=207522777251329,
         guidance: float = 2.5,
         timeout: Annotated[int, "Sekunden"] = 300,
@@ -217,13 +220,13 @@ async def edit_image(
 
         print(workflow)
 
-        workflow["6"]["inputs"]["text"] = prompt
+        workflow["6"]["inputs"]["text"] = image_generation_prompt
         workflow["3"]["inputs"]["seed"] = seed
         workflow["24"]["inputs"]["guidance"] = guidance
 
         await comfy.connect()
 
-        with open(f"../downloads/{image}", "rb") as f:
+        with open(f"../downloads/{input_image}", "rb") as f:
             image_bytes = f.read()
             upload_image_name = comfy.upload_image(image_bytes)
             print(upload_image_name)
@@ -362,7 +365,7 @@ async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, 
 async def generate_audio(
         ctx: Context,
         model: Literal["ACE-Step-V1-3.5B"],
-        tags: Annotated[str, "Genres oder adjektive"],
+        tags: Annotated[str, "Genres oder Adjektive"],
         songtext: Annotated[str, "Nutze Tags wie [instrumental] und [chorus] zur Gliederung"] = "",
         seconds: Annotated[float, "maximal 180"] = 120,
         seed: int = 207522777251329,

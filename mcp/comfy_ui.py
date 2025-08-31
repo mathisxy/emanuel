@@ -121,7 +121,7 @@ class ComfyUI:
                             raise RuntimeError(f"ComfyUI execution error: {msg.get('data').get('exception_message')}")
 
                         if msg.get("type") == "execution_interrupted":
-                            raise RuntimeError(f"Die Bildgenerierung wurde unterbrochen vom Nutzer")
+                            raise RuntimeError(f"Die Bildgenerierung wurde auf Wunsch des Nutzers unterbrochen")
 
                     else:
                         print("BINÄRDATEN")
