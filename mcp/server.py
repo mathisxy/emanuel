@@ -163,7 +163,7 @@ def call_police(message: str) -> str:
 @mcp.tool
 async def generate_image(
         ctx: Context,
-        model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6", "FLUX.1-dev-Q6"],
+        model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6"],
         image_generation_prompt: str,
         width: int = 512,
         height: int = 512,
