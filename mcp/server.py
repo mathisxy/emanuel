@@ -47,11 +47,17 @@ def control_game_server(
         servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "enshrouded"]],
         operation: Literal["status", "start", "stop", "restart"]
 ) -> List[str]:
-    """Gibt Online Status mit Spieleranzahl an, startet, stoppt oder startet Game-Server neu.
+    """
+Game-Server Funktionen:
+ - Online Status mit Serveradresse, Servername und Spieleranzahl abrufen
+ - starten
+ - stoppen
+ - neustarten
+
 Server:
- - Minecraft Vanilla: mathis.party:25565
- - Minecraft Drehmal: mathis.party:25566
- - Enshrouded: Dynamisch
+ - Minecraft Vanilla
+ - Minecraft Drehmal
+ - Enshrouded
  """
 
     output: List[str] = []
@@ -117,7 +123,7 @@ def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal"
     elif server == "minecraft_drehmal":
         port = 25566
     else:
-        raise Exception("Unknown Server")
+        raise Exception("Unbekannter Server")
 
     return domain, port
 

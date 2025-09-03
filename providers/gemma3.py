@@ -246,7 +246,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                                     f.write(image_content)
 
                             else:
-                                tool_results.append({name: json.loads(result.content[0].text)})
+                                tool_results.append({name: f"{result.data}"})
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
