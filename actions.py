@@ -43,6 +43,7 @@ class EmanuelAction:
 
                 case EmanuelActions.RESET:
                     await interaction.channel.send("Manuel Schmanuel")
+                    return "✅ Emanuel hat alles vergessen"
 
                 case EmanuelActions.START | EmanuelActions.STOP | EmanuelActions.RESTART:
                     result = subprocess.run(
