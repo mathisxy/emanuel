@@ -1,7 +1,7 @@
 import discord
 from discord.ui import View, Button
 
-from actions import EmanuelActions, EmanuelAction
+from actions import EmanuelAction, EmanuelActions
 
 
 class ProgressButton(View):
@@ -10,6 +10,6 @@ class ProgressButton(View):
     async def regenerate_button(self, interaction: discord.Interaction, button: Button):
 
         try:
-            await interaction.response.send_message(await EmanuelActions.execute(EmanuelAction.INTERRUPT), ephemeral=True)
+            await interaction.response.send_message(await EmanuelAction.execute(EmanuelActions.INTERRUPT, interaction), ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}", ephemeral=True)

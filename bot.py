@@ -100,6 +100,9 @@ async def handle_message(message):
                 max_count = int(os.getenv("MAX_MESSAGE_COUNT", 3))
                 async for msg in message.channel.history(limit=20, oldest_first=False):
 
+                    if msg.content == "Manuel Schmanuel":
+                        break
+
                     if len(history) >= max_count:
                         break
 

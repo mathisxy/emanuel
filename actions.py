@@ -2,25 +2,28 @@ import os
 import subprocess
 import traceback
 from enum import Enum
+
+import discord
 from fastmcp import Client
 
-class EmanuelAction(str, Enum):
+class EmanuelActions(str, Enum):
     STOP = "stop"
     START = "start"
     RESTART = "restart"
     INTERRUPT = "interrupt_image_generation"
     UNLOAD_COMFY = "unload_comfy_models"
+    RESET = "reset"
 
 
 WORKER_SERVICE = os.getenv("WORKER_SERVICE", "emanuel")
 
-class EmanuelActions:
+class EmanuelAction:
 
     @staticmethod
-    async def execute(action: EmanuelAction) -> str:
+    async def execute(action: EmanuelActions, interaction: discord.Interaction) -> str:
         try:
             match action:
-                case EmanuelAction.INTERRUPT:
+                case EmanuelActions.INTERRUPT:
                     client = Client(os.getenv("MCP_SERVER_URL"))
                     async with client:
                         try:
@@ -29,7 +32,7 @@ class EmanuelActions:
                         except Exception as e:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
-                case EmanuelAction.UNLOAD_COMFY:
+                case EmanuelActions.UNLOAD_COMFY:
                     client = Client(os.getenv("MCP_SERVER_URL"))
                     async with client:
                         try:
@@ -38,7 +41,10 @@ class EmanuelActions:
                         except Exception as e:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
-                case _:
+                case EmanuelActions.RESET:
+                    await interaction.channel.send("Manuel Schmanuel")
+
+                case EmanuelActions.START | EmanuelActions.STOP | EmanuelActions.RESTART:
                     result = subprocess.run(
                         ["sudo", "service", WORKER_SERVICE, action.value],
                         stdout=subprocess.PIPE,
@@ -49,6 +55,9 @@ class EmanuelActions:
                         return f"✅ {action.name} erfolgreich ausgeführt."
                     else:
                         return f"❌ Fehler:\n```\n{result.stderr}\n```"
+
+                case _:
+                    raise Exception("Unbekannte Aktion")
 
         except Exception as e:
             print(traceback.format_exc())
