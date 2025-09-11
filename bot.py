@@ -1,6 +1,7 @@
 import asyncio
 import importlib
 import io
+import re
 from typing import List, Dict, Literal
 
 import discord
@@ -80,6 +81,8 @@ async def handle_message(message):
 
                             elif isinstance(event, DiscordMessageReply):
                                 reply = event.value.strip()
+                                pattern = r'(</?image>|\[[^\]]*?\])'
+                                reply = re.sub(pattern, '', reply)
                                 print(f"REPLY: {reply}")
                                 if not reply:
                                     return
@@ -128,9 +131,9 @@ async def handle_message(message):
 
                                 images.append(save_path)
 
-                                content += f"\nBildname: {attachment.filename}"
+                                content += f"\n[Bildname: {attachment.filename}]"
                             else:
-                                content += f"\nDateiname: {attachment.filename}"
+                                content += f"\n[Dateiname: {attachment.filename}]"
 
                     if not content and not images:
                         continue
