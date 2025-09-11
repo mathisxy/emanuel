@@ -106,8 +106,8 @@ async def handle_message(message):
                     if len(history) >= max_count:
                         break
 
-                    if msg.author != bot.user: #and not is_relevant_message(msg):
-                        continue
+                    #if msg.author != bot.user: #and not is_relevant_message(msg):
+                        #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
                     content = msg.clean_content if role != "user" else f"Um {msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {msg.clean_content}"
