@@ -106,7 +106,7 @@ async def handle_message(message):
                     if len(history) >= max_count:
                         break
 
-                    if msg.author != bot.user and not is_relevant_message(msg):
+                    if msg.author != bot.user: #and not is_relevant_message(msg):
                         continue
 
                     role = "assistant" if msg.author == bot.user else "user"
