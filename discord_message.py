@@ -1,5 +1,6 @@
 import asyncio
 import io
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Dict, runtime_checkable, Protocol
@@ -100,7 +101,7 @@ class DiscordTemporaryMessagesController:
                     self.messages[message.key] = await self.channel.send(view=view, file=file)
                     print("ADDED TEMP FILE")
                     print(self.messages)
-            elif isinstance(message, DiscordMessageReplyTmp):
+            elif isinstance(message, DiscordMessageReplyTmp) or isinstance(message, DiscordMessageProgressTmp):
                 embed = discord.Embed(
                     description=message.value,
                     color=discord.Color.dark_gray()
@@ -120,6 +121,8 @@ class DiscordTemporaryMessagesController:
             elif isinstance(message, DiscordMessageRemoveTmp):
                 if message.key in self.messages.keys():
                     await self.messages[message.key].delete()
+            else:
+                logging.error(f"Ungültiger Temp Message Typ: {message}")
 
     async def __aenter__(self):
         # Init-Logik hier, wenn nötig

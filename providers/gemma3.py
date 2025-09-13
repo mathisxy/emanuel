@@ -254,13 +254,15 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                             print(f"TOOL: {name} ERROR: {e}")
 
                             try:
-                                await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
                                 await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
                                 reasoning = await error_reasoning(str(e), chat)
 
                             except Exception:
                                 await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
                                 reasoning = str(e)
+
+                            finally:
+                                await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
 
                             tool_results.append({name: reasoning})
 
