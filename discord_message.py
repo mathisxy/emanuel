@@ -119,8 +119,10 @@ class DiscordTemporaryMessagesController:
                     print("ADDED TEMP MESSAGE")
                     print(self.messages)
             elif isinstance(message, DiscordMessageRemoveTmp):
-                if message.key in self.messages.keys():
-                    await self.messages[message.key].delete()
+                msg = self.messages.pop(message.key, None)
+                if msg:
+                    await msg.delete()
+
             else:
                 logging.error(f"Ungültiger Temp Message Typ: {message}")
 

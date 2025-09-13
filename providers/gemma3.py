@@ -197,10 +197,24 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                 try:
                     tool_calls = extract_tool_calls(response)
                 except Exception as e:
-                    chat.history.append({"role": "assistant", "content": response})
                     await queue.put(DiscordMessageReply(response))
-                    chat.history.append({"role": "system", "content": str(e)})
-                    print(chat.history)
+
+                    logging.error(e)
+
+                    try:
+                        await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                        reasoning = await error_reasoning(str(e), chat)
+
+                    except Exception as e:
+                        logging.error(e)
+                        #await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
+                        reasoning = str(e)
+
+                    finally:
+                        await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+
+                    chat.history.append({"role": "system", "content": reasoning})
+
                     continue
 
 
@@ -252,6 +266,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
+                            logging.error(e)
 
                             try:
                                 await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
@@ -294,6 +309,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
     except Exception as e:
         print(f"KEIN TOOLERROR: {e}")
+        logging.error(e)
         await queue.put(DiscordMessageReplyTmp(value=str(e), key="error"))
 
 
@@ -365,7 +381,7 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
 
         except Exception as e:
             return f"Ollama Fehler: {str(e)}"
-
+        
 
 
 async def error_reasoning(
