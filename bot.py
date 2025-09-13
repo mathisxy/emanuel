@@ -81,7 +81,7 @@ async def handle_message(message):
 
                             elif isinstance(event, DiscordMessageReply):
                                 reply = event.value.strip()
-                                pattern = r'(</?image>|\[[^\]]*?\])'
+                                pattern = r'(<start_of_image>|\[[^\]]*?\])'
                                 reply = re.sub(pattern, '', reply)
                                 print(f"REPLY: {reply}")
                                 if not reply:
