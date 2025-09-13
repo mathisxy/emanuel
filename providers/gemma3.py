@@ -15,10 +15,12 @@ from fastmcp import Client
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
 from ollama import AsyncClient
+import logging
 
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
-    DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp
+    DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp, DiscordMessageRemoveTmp
 
+logging.basicConfig(filename="bot.log", level=logging.INFO)
 
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
 
@@ -70,9 +72,6 @@ Alle Treffer werden mit JSON geparst und dann aus der Antwort ausgeschnitten.
 Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte aufgerufen.
 Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit direkt nochmal aufgerufen.
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
-
-Weitere Anmerkungen:
-Checke deine Nachrichten am Schluss immer nochmal und entferne immer alle <start_of_image> Tags!
 """
 
 
@@ -192,6 +191,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                 response = await call_ollama(chat)
 
+                chat.history.append({"role": "assistant", "content": response})
+
+
                 try:
                     tool_calls = extract_tool_calls(response)
                 except Exception as e:
@@ -250,9 +252,18 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
-                            tool_results.append({name: str(e)})
 
-                    chat.history.append({"role": "assistant", "content": response})
+                            try:
+                                await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+                                await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                                reasoning = await error_reasoning(str(e), chat)
+
+                            except Exception:
+                                await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
+                                reasoning = str(e)
+
+                            tool_results.append({name: reasoning})
+
 
                     if tool_results:
                         tool_results_message = json.dumps({"tool_results": tool_results})
@@ -300,11 +311,6 @@ def extract_tool_calls(text: str) -> List[Dict]:
     return tool_calls
 
 
-print("NEW OLLAMA CLIENT")
-ollama_client = AsyncClient(host=os.getenv("OLLAMA_URL", "http://localhost:11434"))
-ollama_lock = asyncio.Lock()
-
-
 import pynvml
 
 def check_free_vram(required_gb:float=8):
@@ -330,18 +336,18 @@ async def wait_for_vram(required_gb:float=8, timeout:float=10, interval:float=1)
             else:
                 await asyncio.sleep(interval)
 
-async def call_ollama(chat: OllamaChat) -> str:
+async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, keep_alive: str|None = None) -> str:
 
-    model_name = os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
-    temperature = float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
-    keep_alive = os.getenv("OLLAMA_KEEP_ALIVE", "10m")
+    model_name = model_name if model_name else os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
+    temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
+    keep_alive = keep_alive if keep_alive else os.getenv("OLLAMA_KEEP_ALIVE", "10m")
 
     async with chat.lock:
 
         try:
 
             # Rufe das Modell auf
-            response = await ollama_client.chat(
+            response = await chat.client.chat(
                 model=model_name,
                 messages=chat.history,
                 stream=False,
@@ -351,8 +357,80 @@ async def call_ollama(chat: OllamaChat) -> str:
                 }
             )
 
+            logging.info(response)
+
             return response['message']['content']
 
         except Exception as e:
             return f"Ollama Fehler: {str(e)}"
+
+
+
+async def error_reasoning(
+        error_message: str,
+        chat: OllamaChat,
+):
+
+    instructions = chat.history[0].get("content")
+    assistant_messages = []
+    user_message = ""
+
+    for message in reversed(chat.history):
+
+        logging.info(message)
+
+        if message.get("role") == "user":
+            logging.info("ist user message -> break")
+            user_message = message.get("content")
+            break
+
+        assistant_messages.insert(0, message.get("content"))
+
+    # Formatierung
+
+    context = f"""
+***DEINE AUFGABE***
+Du hilfst einem KI Assistenten (Gemma3 12B) einen Fehler zu beheben.
+Als Überblick bekommst du:
+ - die Instruktionen, die dieser Assistent bekommen hat
+ - die letzten relevanten Nachrichten
+ - die Fehlermeldung
+ 
+Erwähne zuerst einmal welcher Fehler aufgetreten ist.
+Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er behoben werden kann.
+Zeige am besten auch ein Beispiel dafür wie es richtig geht.
+
+
+***Instruktionen für den Assistenten*** 
+
+\"{instructions}\"
+
+
+***Letzte Nachricht des Nutzers*** 
+
+\"{user_message}\"
+
+
+***Darauffolgende Nachrichten des Assistenten*** 
+
+\"{"\n---\n".join(assistant_messages)}\"
+
+
+***Die Fehlermeldung***
+
+\"{error_message}\"
+"""
+
+    logging.info(context)
+
+    reasoning_chat = OllamaChat()
+    reasoning_chat.lock = chat.lock
+    reasoning_chat.history.append({"role": "system", "content": context})
+
+    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b")
+
+    logging.info(reasoning)
+
+    return reasoning
+
 

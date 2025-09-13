@@ -53,6 +53,11 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
         bar = self.filled_char * filled_length + self.empty_char * (self.length - filled_length)
         self.value = f"[{bar}] {int(percent * 100)}% ({int(self.progress)}/{int(self.total)})"
 
+@dataclass
+class DiscordMessageRemoveTmp(DiscordMessage, DiscordMessageTmpMixin):
+    value: None = field(init=False)
+    pass
+
 
 
 class DiscordTemporaryMessagesController:
@@ -95,7 +100,7 @@ class DiscordTemporaryMessagesController:
                     self.messages[message.key] = await self.channel.send(view=view, file=file)
                     print("ADDED TEMP FILE")
                     print(self.messages)
-            else:
+            elif isinstance(message, DiscordMessageReplyTmp):
                 embed = discord.Embed(
                     description=message.value,
                     color=discord.Color.dark_gray()
@@ -112,6 +117,9 @@ class DiscordTemporaryMessagesController:
                     self.messages[message.key] = await self.channel.send(view=view, embed=embed)
                     print("ADDED TEMP MESSAGE")
                     print(self.messages)
+            elif isinstance(message, DiscordMessageRemoveTmp):
+                if message.key in self.messages.keys():
+                    await self.messages[message.key].delete()
 
     async def __aenter__(self):
         # Init-Logik hier, wenn nötig
