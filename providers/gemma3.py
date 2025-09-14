@@ -17,6 +17,8 @@ from mcp import Tool
 from ollama import AsyncClient
 import logging
 
+from torch.optim.optimizer import required
+
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
     DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp, DiscordMessageRemoveTmp
 
@@ -239,30 +241,36 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         try:
                             result = await client.call_tool(name, arguments)
 
-                            print(result.content[0].type)
+                            logging.info(f"Tool Call Result bekommen für {name}")
 
-                            if result.content[0].type == "image" or result.content[0].type == "audio":
-
-                                image_content = base64.b64decode(result.content[0].data)
-                                media_type = result.content[0].mimeType
-                                print(media_type)
-                                ext = mimetypes.guess_extension(media_type)
-                                print(ext)
-
-                                filename = f"{secrets.token_urlsafe(8)}{ext}"
-
-                                file_info = image_content, filename
-
-                                if result.content[0].type == "image":
-                                    tool_image_results.append(file_info)
-                                else:
-                                    tool_file_results.append(file_info)
-
-                                with open(os.path.join("downloads", filename), "wb") as f:
-                                    f.write(image_content)
+                            if not result.content:
+                                break # Manuelle Unterbrechung
 
                             else:
-                                tool_results.append({name: f"{result.data}"})
+                                logging.info(result.content[0].type)
+
+                                if result.content[0].type == "image" or result.content[0].type == "audio":
+
+                                    image_content = base64.b64decode(result.content[0].data)
+                                    media_type = result.content[0].mimeType
+                                    print(media_type)
+                                    ext = mimetypes.guess_extension(media_type)
+                                    print(ext)
+
+                                    filename = f"{secrets.token_urlsafe(8)}{ext}"
+
+                                    file_info = image_content, filename
+
+                                    if result.content[0].type == "image":
+                                        tool_image_results.append(file_info)
+                                    else:
+                                        tool_file_results.append(file_info)
+
+                                    with open(os.path.join("downloads", filename), "wb") as f:
+                                        f.write(image_content)
+
+                                else:
+                                    tool_results.append({name: f"{result.data}"})
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
@@ -445,6 +453,7 @@ Zeige am besten auch ein Beispiel dafür wie es richtig geht.
     reasoning_chat.lock = chat.lock
     reasoning_chat.history.append({"role": "system", "content": context})
 
+    await wait_for_vram(required_gb=11)
     reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b")
 
     logging.info(reasoning)

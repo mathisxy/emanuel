@@ -331,7 +331,7 @@ async def remove_image_background(
 
 
 
-async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Image:
+async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Image|None:
 
     queue = asyncio.Queue[ComfyUIEvent|None]()
 
@@ -361,6 +361,10 @@ async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     comfyui_image, _ = await asyncio.gather(task1, task2)
 
     await comfy.close()
+
+    if comfyui_image is None:
+        print("Returning None")
+        return None
 
     return Image(
         data=comfyui_image.image_bytes,
@@ -404,7 +408,9 @@ async def generate_audio(
         #workflow["52"]["inputs"]["steps"] = steps
         #workflow["52"]["inputs"]["cfg"] = cfg
 
-        return await _comfyui_generate_audio(comfy, ctx, workflow, timeout)
+        result = await _comfyui_generate_audio(comfy, ctx, workflow, timeout)
+        print(result is None)
+        return result
 
     except FileNotFoundError:
         raise Exception(f"Audio-Workflow-Datei für Modell {model} nicht gefunden. Erwartet: comfy-ui/{model}.json")
@@ -415,7 +421,7 @@ async def generate_audio(
         comfy.free_models(including_execution_cache=True)
 
 
-async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Audio:
+async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, timeout: int) -> Audio|None:
     """Hilfsfunktion für die Audio-Generierung mit ComfyUI"""
 
     queue = asyncio.Queue[ComfyUIEvent|None]()
@@ -438,6 +444,10 @@ async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     comfyui_audio, _ = await asyncio.gather(task1, task2)
 
     await comfy.close()
+
+    if comfyui_audio is None:
+        print("Returning None")
+        return None
 
     return Audio(
         data=comfyui_audio.audio_bytes,

@@ -77,7 +77,7 @@ class ComfyUI:
         print(len(response.content))
         return response.content
 
-    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[ComfyUIEvent | None] | None = None) -> ComfyUIImage|ComfyUIAudio:
+    async def queue(self, prompt: Dict[str, str], timeout: float =120, events: asyncio.Queue[ComfyUIEvent | None] | None = None) -> ComfyUIImage|ComfyUIAudio|None:
         prompt_id = str(uuid.uuid4())
         p = {
             "prompt": prompt,
@@ -121,7 +121,11 @@ class ComfyUI:
                             raise RuntimeError(f"ComfyUI execution error: {msg.get('data').get('exception_message')}")
 
                         if msg.get("type") == "execution_interrupted":
-                            raise RuntimeError(f"Die Bildgenerierung wurde auf Wunsch des Nutzers unterbrochen")
+                            print("Unterbrechung durch Nutzer")
+                            if events:
+                                await events.put(None)
+                            return None
+                            # raise ComfyUICanceledException(f"Die Bildgenerierung wurde auf Wunsch des Nutzers unterbrochen")
 
                     else:
                         print("BINÄRDATEN")
@@ -140,8 +144,6 @@ class ComfyUI:
             raise TimeoutError("Timed out waiting for ComfyUI response.")
         except ConnectionClosed as e:
             raise ConnectionError(f"WebSocket connection closed: {e}")
-        except Exception as e:
-            raise RuntimeError(str(e))
 
     def interrupt(self):
         response = requests.post(f"{self.http_prefix}{self.domain}/interrupt")
