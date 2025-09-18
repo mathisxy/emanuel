@@ -48,7 +48,7 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 Du machst keine zu langen Antworten.
 Du hast Zugriff auf folgende Tools:
     
-{json.dumps(dict_tools, separators=(',', ':'))}
+{json.dumps(dict_tools, indent=0, separators=(',', ': '), ensure_ascii=False)}
 
 Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
 Nutze die Tools immer nur wenn nötig!

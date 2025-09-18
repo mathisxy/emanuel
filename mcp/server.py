@@ -1,11 +1,10 @@
 import asyncio
 import base64
 import json
+import os
 import random
 import socket
 import subprocess
-import time
-from enum import Enum
 from typing import List, Literal, Dict, Annotated
 
 from fastmcp.utilities.types import Image, Audio
@@ -20,16 +19,16 @@ from comfy_ui import ComfyUIImage
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
 
-class Servers(Enum):
-    minecraft = "minecraft_vanilla",
-    drehmal = "minecraft_drehmal",
-    enshrouded = "enshrouded",
+# class Servers(Enum):
+#     minecraft = "minecraft_vanilla",
+#     drehmal = "minecraft_drehmal",
+#     enshrouded = "enshrouded",
 
-class ServerOperations(Enum):
-    status = "status",
-    start = "start",
-    stop = "stop",
-    restart = "restart"
+# class ServerOperations(Enum):
+#     status = "status",
+#     start = "start",
+#     stop = "stop",
+#     restart = "restart"
 
 @mcp.tool()
 def roll_dice(sides: int = 6) -> int:
@@ -44,7 +43,7 @@ def roll_dice(sides: int = 6) -> int:
 
 @mcp.tool()
 def control_game_server(
-        servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "enshrouded"]],
+        servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]],
         operation: Literal["status", "start", "stop", "restart"]
 ) -> List[str]:
     """
@@ -57,6 +56,7 @@ Game-Server Funktionen:
 Server:
  - Minecraft Vanilla
  - Minecraft Drehmal
+ - Minecraft Speedrun
  - Enshrouded
  """
 
@@ -91,7 +91,7 @@ Server:
 
     return output
 
-def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla", "minecraft_drehmal"]) -> Dict:
+def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla", "minecraft_speedrun", "minecraft_drehmal"]) -> Dict:
     domain, port = _get_server_address(server)
 
     if server == "enshrouded":
@@ -113,15 +113,17 @@ def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla",
         }
 
 
-def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal", "enshrouded"]) -> (str, int):
+def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]) -> (str, int):
     domain = "mathis.party"
     if server == "enshrouded":
         domain = socket.gethostbyname(domain)
         port = 15637
     elif server == "minecraft_vanilla":
-        port = 25565
+        port = 25567
     elif server == "minecraft_drehmal":
         port = 25566
+    elif server == "minecraft_speedrun":
+        port = 25565
     else:
         raise Exception("Unbekannter Server")
 
@@ -159,6 +161,37 @@ def update_enshrouded_server() -> str:
         return "Timeout: Das Update hat zu lange gedauert und wurde abgebrochen."
     except Exception as e:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
+
+@mcp.tool
+def reset_minecraft_speedrun_server() -> str:
+    """Löscht den Minecraft Speedrun Server und erstellt einen neuen"""
+
+    path = "/mnt/samsung/speedrun/" # os.getenv("MINECRAFT_SPEEDRUN_PATH")
+    url = "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar" # os.getenv("MINECRAFT_JAR_URL")
+
+    subprocess.run(
+        ["sudo", "service", "minecraft_speedrun", "stop"],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+
+    subprocess.run(
+        ["rm", "-rf", path],
+        capture_output=True, text=True
+    )
+
+    subprocess.run(["mkdir", "-p", path], check=True)
+    subprocess.run(["sudo", "chown", "minecraft", path], check=True)
+
+    subprocess.run(["wget", "-O", f"{path}/server.jar", url], check=True)
+
+    with open(f"{path}/eula.txt", "w") as f:
+        f.write("eula=true\n")
+
+    subprocess.run(["sudo", "service", "minecraft_speedrun", "start"], check=True)
+
+    return "Der Minecraft Speedrun Server wurde resettet"
 
 
 @mcp.tool
