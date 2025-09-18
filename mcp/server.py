@@ -107,6 +107,7 @@ def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla",
         server_obj = JavaServer.lookup(f"{domain}:{port}")
         status = server_obj.status()
         return {
+            "address": f"{domain}:{port}",
             "version": status.version.name,
             "description": status.description,
             "online": "niemand" if status.players.online == 0 else ", ".join([name.name for name in status.players.sample])

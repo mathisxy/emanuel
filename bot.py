@@ -81,7 +81,7 @@ async def handle_message(message):
 
                             elif isinstance(event, DiscordMessageReply):
                                 reply = event.value.strip()
-                                pattern = r'(<start_of_image>|\[[^\]]*?\])'
+                                pattern = r'(<start_of_image>|\[#.*?\])'
                                 reply = re.sub(pattern, '', reply)
                                 print(f"REPLY: {reply}")
                                 if not reply:
@@ -131,9 +131,9 @@ async def handle_message(message):
 
                                 images.append(save_path)
 
-                                content += f"\n[Bildname: {attachment.filename}]"
+                                content += f"\n[#Bildname: {attachment.filename}]"
                             else:
-                                content += f"\n[Dateiname: {attachment.filename}]"
+                                content += f"\n[#Dateiname: {attachment.filename}]"
 
                     if not content and not images:
                         continue
