@@ -292,9 +292,9 @@ async def remove_image_background(
         mask_blur: int = 0,
         mask_offset: int = 0,
         invert_output: bool = False,
-        refine_foreground: bool = False,
-        background: Literal["Alpha", "Color"] = "Alpha",
-        background_color: Literal["black", "white", "red", "green", "blue"] = "black",
+        refine_foreground: bool = True,
+        #background: Literal["Alpha", "Color"] = "Alpha",
+        #background_color: Literal["black", "white", "red", "green", "blue"] = "black",
         timeout: Annotated[int, "Sekunden"] = 30,
 ) -> Image:
     """Hintergrundentfernungstool: Entfernt den Hintergrund des übergebenen Bildes"""
@@ -327,16 +327,16 @@ async def remove_image_background(
         rmbg_node["inputs"]["mask_offset"] = mask_offset
         rmbg_node["inputs"]["invert_output"] = invert_output
         rmbg_node["inputs"]["refine_foreground"] = refine_foreground
-        rmbg_node["inputs"]["background"] = background
+        rmbg_node["inputs"]["background"] = "Alpha" # background
 
         # 3. Farbe setzen (wenn Color gewählt)
-        if background == "Color":
-            # Finde passende Color-Node, die mit "background_color" verbunden ist
-            for node_id, node in workflow.items():
-                if node.get("class_type") == "ColorInput":
-                    if "color" in node.get("inputs", {}):
-                        node["inputs"]["color"] = background_color
-                        break
+        # if background == "Color":
+        #     # Finde passende Color-Node, die mit "background_color" verbunden ist
+        #     for node_id, node in workflow.items():
+        #         if node.get("class_type") == "ColorInput":
+        #             if "color" in node.get("inputs", {}):
+        #                 node["inputs"]["color"] = background_color
+        #                 break
 
         load_image_node_id = None
         for node_id, node in workflow.items():

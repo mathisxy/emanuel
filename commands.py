@@ -1,14 +1,10 @@
 import os
-import subprocess
-from enum import Enum
 
 import discord
 
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
-from fastmcp import Client
-from fastmcp.exceptions import ToolError
 
 from actions import EmanuelAction, EmanuelActions
 
@@ -34,7 +30,7 @@ async def on_ready():
     app_commands.Choice(name="Bildgenerierungsmodelle aus VRAM entfernen", value=EmanuelActions.UNLOAD_COMFY),
     app_commands.Choice(name="Nachrichtenverlauf zurücksetzen", value=EmanuelActions.RESET)
 ])
-@bot.tree.command(name="emanuel", description="Steuere Emanuel")
+@bot.tree.command(name=os.getenv("COMMAND_NAME"), description="Steuere den Bot")
 async def emanuel(interaction: discord.Interaction, action: app_commands.Choice[str]):
 
     try:

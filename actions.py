@@ -42,8 +42,8 @@ class EmanuelAction:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
                 case EmanuelActions.RESET:
-                    await interaction.channel.send("Manuel Schmanuel")
-                    return "✅ Emanuel hat alles vergessen"
+                    await interaction.channel.send(os.getenv("HISTORY_RESET_TEXT"))
+                    return f"✅ {os.getenv("NAME")} hat alles vergessen"
 
                 case EmanuelActions.START | EmanuelActions.STOP | EmanuelActions.RESTART:
                     result = subprocess.run(
