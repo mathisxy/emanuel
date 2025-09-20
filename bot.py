@@ -138,7 +138,7 @@ async def handle_message(message):
                     if not content and not images:
                         continue
 
-                    history.append({"role": role, "content": content, "images": images})
+                    history.append({"role": role, "content": content, **({"images": images} if images else {})})
 
                 history.reverse()
 
@@ -165,6 +165,14 @@ async def on_message(message: discord.Message):
         print(e)
         await message.reply(f"Fehler: {e}")
 
+
+@bot.event
+async def on_ready():
+    print(f"🤖 Bot online als {bot.user}!")
+    # Alle Cogs laden
+    await bot.load_extension("cogs.commands")
+    await bot.tree.sync()
+    print("✅ Slash-Commands synchronisiert")
 
 
 bot.run(discord_token)

@@ -6,10 +6,7 @@ from enum import Enum
 import discord
 from fastmcp import Client
 
-class EmanuelActions(str, Enum):
-    STOP = "stop"
-    START = "start"
-    RESTART = "restart"
+class BotActions(str, Enum):
     INTERRUPT = "interrupt_image_generation"
     UNLOAD_COMFY = "unload_comfy_models"
     RESET = "reset"
@@ -17,13 +14,13 @@ class EmanuelActions(str, Enum):
 
 WORKER_SERVICE = os.getenv("WORKER_SERVICE", "emanuel")
 
-class EmanuelAction:
+class BotAction:
 
     @staticmethod
-    async def execute(action: EmanuelActions, interaction: discord.Interaction) -> str:
+    async def execute(action: BotActions, interaction: discord.Interaction) -> str:
         try:
             match action:
-                case EmanuelActions.INTERRUPT:
+                case BotActions.INTERRUPT:
                     client = Client(os.getenv("MCP_SERVER_URL"))
                     async with client:
                         try:
@@ -32,7 +29,7 @@ class EmanuelAction:
                         except Exception as e:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
-                case EmanuelActions.UNLOAD_COMFY:
+                case BotActions.UNLOAD_COMFY:
                     client = Client(os.getenv("MCP_SERVER_URL"))
                     async with client:
                         try:
@@ -41,21 +38,21 @@ class EmanuelAction:
                         except Exception as e:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
-                case EmanuelActions.RESET:
+                case BotActions.RESET:
                     await interaction.channel.send(os.getenv("HISTORY_RESET_TEXT"))
                     return f"✅ {os.getenv("NAME")} hat alles vergessen"
 
-                case EmanuelActions.START | EmanuelActions.STOP | EmanuelActions.RESTART:
-                    result = subprocess.run(
-                        ["sudo", "service", WORKER_SERVICE, action.value],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-                    if result.returncode == 0:
-                        return f"✅ {action.name} erfolgreich ausgeführt."
-                    else:
-                        return f"❌ Fehler:\n```\n{result.stderr}\n```"
+                # case EmanuelActions.RESTART:
+                #     result = subprocess.run(
+                #         ["sudo", "service", WORKER_SERVICE, action.value],
+                #         stdout=subprocess.PIPE,
+                #         stderr=subprocess.PIPE,
+                #         text=True
+                #     )
+                #     if result.returncode == 0:
+                #         return f"✅ {action.name} erfolgreich ausgeführt."
+                #     else:
+                #         return f"❌ Fehler:\n```\n{result.stderr}\n```"
 
                 case _:
                     raise Exception("Unbekannte Aktion")

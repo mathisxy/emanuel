@@ -17,8 +17,6 @@ from mcp import Tool
 from ollama import AsyncClient
 import logging
 
-from torch.optim.optimizer import required
-
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
     DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp, DiscordMessageRemoveTmp
 
@@ -103,16 +101,17 @@ class OllamaChat:
         print(history_without_tool_results)
         print(new_history)
 
-        max_overlap_length = min(len(history_without_tool_results), len(new_history))
+        max_overlap_length = len(history_without_tool_results)
         overlap_length = None
 
         for length in range(max_overlap_length, min_overlap, -1):
             if history_without_tool_results[-length:] == new_history[:length]:
                 overlap_length = length
+                logging.info(f"OVERLAP LENGTH: {overlap_length}")
                 break
 
         if not overlap_length:
-            print("KEIN OVERLAP")
+            logging.info("KEIN OVERLAP")
             print(self.history)
             print(new_history)
             self.history = [{"role": "system", "content": instructions}]
