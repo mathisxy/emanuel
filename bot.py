@@ -132,6 +132,11 @@ async def handle_message(message):
                                 images.append(save_path)
 
                                 content += f"\n[#Bildname: {attachment.filename}]"
+                            elif attachment.content_type and "text" in attachment.content_type:
+                                text_bytes = await attachment.read()
+                                text_content = text_bytes.decode("utf-8")
+
+                                content += f"\n[#Dateiname: {attachment.filename}, ausgelesener Inhalt folgt:]\n{text_content}"
                             else:
                                 content += f"\n[#Dateiname: {attachment.filename}]"
 

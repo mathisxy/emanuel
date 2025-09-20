@@ -12,6 +12,7 @@ import GPUtil
 import fastmcp
 import tiktoken
 from fastmcp import Client
+from fastmcp.client.client import CallToolResult
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
 from ollama import AsyncClient
@@ -93,13 +94,13 @@ class OllamaChat:
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
-    def update_history(self, new_history: List[Dict[str, str]], instructions: str, min_overlap=1):
+    def update_history(self, new_history: List[Dict[str, str]], instructions_entry: Dict[str, str], min_overlap=1):
 
         history_without_tool_results = [x for x in self.history if not (x["role"] == "system" and x["content"].startswith('{"tool_results":'))]
 
-        print("HISTORY WITHOUT TOOLS")
-        print(history_without_tool_results)
-        print(new_history)
+        #print("HISTORY WITHOUT TOOLS")
+        #print(history_without_tool_results)
+        #print(new_history)
 
         max_overlap_length = len(history_without_tool_results)
         overlap_length = None
@@ -114,15 +115,15 @@ class OllamaChat:
             logging.info("KEIN OVERLAP")
             print(self.history)
             print(new_history)
-            self.history = [{"role": "system", "content": instructions}]
+            self.history = [instructions_entry]
             self.history.extend(new_history)
-        elif self.history[0] == {"role": "system", "content": instructions}:
+        elif self.history[0] == instructions_entry:
             self.history = self.history + new_history[overlap_length:]
         else:
             print("NEW INSTRUCTIONS")
             print(self.history[0])
-            print({"role": "system", "content": instructions})
-            self.history = [{"role": "system", "content": instructions}]
+            print(instructions_entry)
+            self.history = [instructions_entry]
             self.history.extend(new_history)
 
         print(self.count_tokens())
@@ -149,6 +150,7 @@ class OllamaChat:
 
 
 ollama_chat: Dict[str, OllamaChat] = {}
+
 
 async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str):
 
@@ -177,14 +179,16 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
             system_prompt = get_tools_system_prompt(mcp_tools)
 
-            #print(system_prompt)
+            logging.debug(f"SYSTEM PROMPT: {system_prompt}")
 
             enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
-            print(f"System Message Tokens: {len(enc.encode(system_prompt))}")
+            logging.info(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
-            chat.update_history(history, f"{instructions}\n\n{system_prompt}")
+            instructions = {"role": "system", "content": f"{instructions}\n\n{system_prompt}"}
 
-            print(chat.history)
+            chat.update_history(history, instructions)
+
+            logging.debug(f"HISTORY: {chat.history}")
 
             for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
 
@@ -193,6 +197,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                 response = await call_ollama(chat)
 
                 chat.history.append({"role": "assistant", "content": response})
+                await queue.put(DiscordMessageReply(response))
 
 
                 try:
@@ -206,9 +211,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
                         reasoning = await error_reasoning(str(e), chat)
 
-                    except Exception as e:
-                        logging.error(e)
-                        #await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
+                    except Exception as f:
+                        logging.error(f)
                         reasoning = str(e)
 
                     finally:
@@ -220,10 +224,6 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
 
                 if tool_calls:
-
-                    print(response)
-
-                    await queue.put(DiscordMessageReply(response))
 
                     tool_results = []
                     tool_image_results = []
@@ -246,30 +246,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                                 break # Manuelle Unterbrechung
 
                             else:
-                                logging.info(result.content[0].type)
 
-                                if result.content[0].type == "image" or result.content[0].type == "audio":
-
-                                    image_content = base64.b64decode(result.content[0].data)
-                                    media_type = result.content[0].mimeType
-                                    print(media_type)
-                                    ext = mimetypes.guess_extension(media_type)
-                                    print(ext)
-
-                                    filename = f"{secrets.token_urlsafe(8)}{ext}"
-
-                                    file_info = image_content, filename
-
-                                    if result.content[0].type == "image":
-                                        tool_image_results.append(file_info)
-                                    else:
-                                        tool_file_results.append(file_info)
-
-                                    with open(os.path.join("downloads", filename), "wb") as f:
-                                        f.write(image_content)
-
-                                else:
-                                    tool_results.append({name: f"{result.data}"})
+                                process_tool_result(name, result, tool_results, tool_image_results, tool_file_results)
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
@@ -311,7 +289,6 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         break
 
                 else:
-                    await queue.put(DiscordMessageReply(response))
                     break
 
     except Exception as e:
@@ -334,6 +311,33 @@ def extract_tool_calls(text: str) -> List[Dict]:
             raise Exception(f"Fehler beim JSON Dekodieren des Tool Calls: {e}")
 
     return tool_calls
+
+def process_tool_result(name: str, result: CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List):
+
+    logging.info(result.content[0].type)
+
+    if result.content[0].type == "image" or result.content[0].type == "audio":
+
+        image_content = base64.b64decode(result.content[0].data)
+        media_type = result.content[0].mimeType
+        print(media_type)
+        ext = mimetypes.guess_extension(media_type)
+        print(ext)
+
+        filename = f"{secrets.token_urlsafe(8)}{ext}"
+
+        file_info = image_content, filename
+
+        if result.content[0].type == "image":
+            tool_image_results.append(file_info)
+        else:
+            tool_file_results.append(file_info)
+
+        with open(os.path.join("downloads", filename), "wb") as f:
+            f.write(image_content)
+
+    else:
+        tool_results.append({name: f"{result.data}"})
 
 
 import pynvml
@@ -387,6 +391,7 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
             return response['message']['content']
 
         except Exception as e:
+            logging.error(e)
             return f"Ollama Fehler: {str(e)}"
         
 
