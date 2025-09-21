@@ -1,8 +1,9 @@
 import asyncio
 import importlib
 import io
+import logging
 import re
-from typing import List, Dict, Literal
+from typing import List, Dict
 
 import discord
 import pytz
@@ -24,7 +25,9 @@ ai=os.getenv("AI", "mistral")
 
 intents = discord.Intents.default()
 intents.message_content = True  # Für Textnachrichten lesen
-intents.messages = True  # explizit hinzufügen
+intents.messages = True
+intents.members = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
@@ -113,7 +116,7 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.clean_content if role != "user" else f"Um {msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} schrieb {msg.author.display_name}: {msg.clean_content}"
+                    content = msg.content if role != "user" else f"[#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}] {msg.content}"
                     images = []
 
                     if msg.attachments:
@@ -147,9 +150,26 @@ async def handle_message(message):
 
                 history.reverse()
 
-                channel_name = f"DM mit {message.author.display_name}" if isinstance(message.channel, discord.DMChannel) else message.channel.name
+                member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members])
 
-                instructions = f"Du bist {os.getenv("NAME")}. Du bist im Discord Channel: {channel_name}"
+                logging.info(member_list)
+
+                instructions = f"Du bist {os.getenv("NAME")}. "
+
+                if not isinstance(message.channel, discord.DMChannel):
+                    channel_name = message.channel.name
+                    instructions += f"""Du bist im Discord Channel: {message.channel.name}
+                    
+                    Hier ist eine Liste aller Mitglieder die du taggen darfst:
+                    {member_list}
+                    
+                    Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@ID> (z.B: <@123456789>).
+                    
+                    """
+
+                else:
+                    instructions += f"Du bist im DM Chat mit {message.author.display_name}.\n"
+
                 instructions += os.getenv("INSTRUCTIONS")
 
                 task1 = asyncio.create_task(listener(queue))

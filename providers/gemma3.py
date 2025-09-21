@@ -351,7 +351,7 @@ def check_free_vram(required_gb:float=8):
         raise RuntimeError(f"Nicht genug VRAM: {free_gb:.2f} GB frei, {required_gb} GB benötigt")
     print(f"Genug VRAM vorhanden: {free_gb:.2f} GB frei")
 
-async def wait_for_vram(required_gb:float=8, timeout:float=10, interval:float=1):
+async def wait_for_vram(required_gb:float=8, timeout:float=20, interval:float=1):
 
     start = time.time()
 
