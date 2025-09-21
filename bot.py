@@ -7,6 +7,7 @@ from typing import List, Dict
 
 import discord
 import pytz
+from discord import Status
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
@@ -27,6 +28,7 @@ intents = discord.Intents.default()
 intents.message_content = True  # Für Textnachrichten lesen
 intents.messages = True
 intents.members = True
+intents.presences = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -150,7 +152,7 @@ async def handle_message(message):
 
                 history.reverse()
 
-                member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members])
+                member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members if m.status == Status.online])
 
                 logging.info(member_list)
 

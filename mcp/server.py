@@ -132,36 +132,55 @@ def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal"
 
 
 @mcp.tool
-def update_enshrouded_server() -> str:
-    """Updated den Enshrouded Server"""
+def set_minecraft_server_property(
+        server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun"],
+        property: str,
+        value: str,
+        check_if_property_exists: bool = True,
+) -> str:
+    """Ändert die server.properties Datei des angegebenen Minecraft Servers"""
 
-    cmd = (
-        "sudo service enshrouded stop && "
-        "sudo /usr/games/steamcmd "
-        "+@sSteamCmdForcePlatformType windows "
-        "+force_install_dir /mnt/samsung/enshrouded-server "
-        "+login anonymous +app_update 2278520 +quit" #&& "
-        #"sudo service enshrouded start"
-    )
+    server_paths = {
+        "minecraft_vanilla": "/mnt/samsung/fabric/server.properties",
+        "minecraft_drehmal": "/mnt/samsung/drehmal/server.properties",
+        "minecraft_speedrun": "/mnt/samsung/speedrun/server.properties",
+    }
 
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 Minuten Timeout, anpassbar
-        )
+    if server not in server_paths:
+        raise Exception(f"Unbekannter Server: {server}")
 
-        if result.returncode == 0:
-            return "Enshrouded Server Update wurde erfolgreich durchgeführt."
-        else:
-            return f"Fehler beim Update:\n{result.stderr.strip() or result.stdout.strip()}"
+    path = server_paths[server]
 
-    except subprocess.TimeoutExpired:
-        return "Timeout: Das Update hat zu lange gedauert und wurde abgebrochen."
-    except Exception as e:
-        return f"Fehler beim Ausführen des Updates: {str(e)}"
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"server.properties für {server} nicht gefunden")
+
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    found = False
+    for i, line in enumerate(lines):
+        # ignoriert Kommentare
+        if line.strip().startswith("#"):
+            continue
+        if line.startswith(f"{property}="):
+            lines[i] = f"{property}={value}\n"
+            found = True
+            break
+
+    # Falls Property nicht existiert → am Ende hinzufügen
+    if not found:
+        if check_if_property_exists:
+            raise Exception(f"Property '{property}' für {server} wurde nicht gefunden in server.properties")
+        if not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f"{property}={value}\n")
+
+    # Datei überschreiben
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    return f"Property '{property}' für {server} gesetzt auf '{value}'"
+
 
 @mcp.tool
 def reset_minecraft_speedrun_server() -> str:
@@ -193,6 +212,38 @@ def reset_minecraft_speedrun_server() -> str:
     subprocess.run(["sudo", "service", "minecraft_speedrun", "start"], check=True)
 
     return "Der Minecraft Speedrun Server wurde resettet"
+
+@mcp.tool
+def update_enshrouded_server() -> str:
+    """Updated den Enshrouded Server"""
+
+    cmd = (
+        "sudo service enshrouded stop && "
+        "sudo /usr/games/steamcmd "
+        "+@sSteamCmdForcePlatformType windows "
+        "+force_install_dir /mnt/samsung/enshrouded-server "
+        "+login anonymous +app_update 2278520 +quit" #&& "
+        #"sudo service enshrouded start"
+    )
+
+    try:
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 Minuten Timeout, anpassbar
+        )
+
+        if result.returncode == 0:
+            return "Enshrouded Server Update wurde erfolgreich durchgeführt."
+        else:
+            return f"Fehler beim Update:\n{result.stderr.strip() or result.stdout.strip()}"
+
+    except subprocess.TimeoutExpired:
+        return "Timeout: Das Update hat zu lange gedauert und wurde abgebrochen."
+    except Exception as e:
+        return f"Fehler beim Ausführen des Updates: {str(e)}"
 
 
 @mcp.tool
