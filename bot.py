@@ -152,14 +152,16 @@ async def handle_message(message):
 
                 history.reverse()
 
-                member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members if m.status == Status.online])
-
-                logging.info(member_list)
-
                 instructions = f"Du bist {os.getenv("NAME")}. "
 
+                channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
+
                 if not isinstance(message.channel, discord.DMChannel):
-                    channel_name = message.channel.name
+
+                    member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members if m.status == Status.online])
+
+                    logging.info(member_list)
+
                     instructions += f"""Du bist im Discord Channel: {message.channel.name}
                     
                     Hier ist eine Liste aller Mitglieder die du taggen darfst:

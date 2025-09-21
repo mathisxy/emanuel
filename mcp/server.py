@@ -30,7 +30,7 @@ mcp = FastMCP("game_servers")
 #     stop = "stop",
 #     restart = "restart"
 
-@mcp.tool()
+@mcp.tool(tags={"Emanuel", "Lilith"})
 def roll_dice(sides: int = 6) -> int:
     """Würfelt einen Würfel mit der angegebenen Seitenanzahl"""
     if sides < 2:
@@ -41,7 +41,7 @@ def roll_dice(sides: int = 6) -> int:
     print(result)
     return result
 
-@mcp.tool()
+@mcp.tool(tags={"Lilith"})
 def control_game_server(
         servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]],
         operation: Literal["status", "start", "stop", "restart"]
@@ -131,7 +131,7 @@ def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal"
     return domain, port
 
 
-@mcp.tool
+@mcp.tool(tags={"Lilith"})
 def set_minecraft_server_property(
         server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun"],
         property: str,
@@ -182,7 +182,7 @@ def set_minecraft_server_property(
     return f"Property '{property}' für {server} gesetzt auf '{value}'"
 
 
-@mcp.tool
+@mcp.tool(tags={"Lilith"})
 def reset_minecraft_speedrun_server() -> str:
     """Löscht den Minecraft Speedrun Server und erstellt einen neuen"""
 
@@ -213,7 +213,7 @@ def reset_minecraft_speedrun_server() -> str:
 
     return "Der Minecraft Speedrun Server wurde resettet"
 
-@mcp.tool
+@mcp.tool(tags={"Lilith"})
 def update_enshrouded_server() -> str:
     """Updated den Enshrouded Server"""
 
@@ -246,12 +246,12 @@ def update_enshrouded_server() -> str:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
 
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel", "Lilith"})
 def call_police(message: str) -> str:
     """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel"})
 async def generate_image(
         ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6"],
@@ -291,7 +291,7 @@ async def generate_image(
         await asyncio.sleep(1)
         comfy.free_models()
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel"})
 async def edit_image(
         ctx: Context,
         input_image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -333,7 +333,7 @@ async def edit_image(
         comfy.free_models()
 
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel"})
 async def remove_image_background(
         ctx: Context,
         image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -456,7 +456,7 @@ async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, 
         format="png",
     )
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel"})
 async def generate_audio(
         ctx: Context,
         model: Literal["ACE-Step-V1-3.5B"],
@@ -540,7 +540,7 @@ async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     )
 
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel"})
 async def free_image_generation_vram(including_execution_cache: bool = True) -> bool:
 
     ComfyUI().free_models(including_execution_cache)
@@ -550,7 +550,7 @@ async def free_image_generation_vram(including_execution_cache: bool = True) -> 
     return True
 
 
-@mcp.tool
+@mcp.tool(tags={"Emanuel"})
 async def interrupt_image_generation() -> bool:
     #raise Exception("Test")
     comfy = ComfyUI()

@@ -177,6 +177,10 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
             mcp_tools = await client.list_tools()
 
+            mcp_tools = filter_tool_list(mcp_tools)
+
+            logging.info(mcp_tools)
+
             system_prompt = get_tools_system_prompt(mcp_tools)
 
             logging.debug(f"SYSTEM PROMPT: {system_prompt}")
@@ -295,6 +299,15 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
         print(f"KEIN TOOLERROR: {e}")
         logging.error(e)
         await queue.put(DiscordMessageReplyTmp(value=str(e), key="error"))
+
+def filter_tool_list(tools: List[Tool]):
+
+    return [
+        tool for tool in tools
+        if hasattr(tool, 'meta') and tool.meta and
+           tool.meta.get('_fastmcp', {}) and
+           os.getenv("NAME") in tool.meta.get('_fastmcp', {}).get('tags', [])
+    ]
 
 
 def extract_tool_calls(text: str) -> List[Dict]:
