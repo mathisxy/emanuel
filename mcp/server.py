@@ -138,12 +138,13 @@ def set_minecraft_server_property(
         value: str,
         check_if_property_exists: bool = True,
 ) -> str:
-    """Ändert die server.properties Datei des angegebenen Minecraft Servers"""
+    """Ändert die server.properties Datei des angegebenen Minecraft Servers.
+    Damit die Änderungen wirksam werden muss dieser Server neu gestartet werden."""
 
     server_paths = {
-        "minecraft_vanilla": "/mnt/samsung/fabric/server.properties",
-        "minecraft_drehmal": "/mnt/samsung/drehmal/server.properties",
-        "minecraft_speedrun": "/mnt/samsung/speedrun/server.properties",
+        "minecraft_vanilla": "/mnt/samsung/fabric",
+        "minecraft_drehmal": "/mnt/samsung/drehmal",
+        "minecraft_speedrun": "/mnt/samsung/speedrun",
     }
 
     if server not in server_paths:
@@ -151,8 +152,17 @@ def set_minecraft_server_property(
 
     path = server_paths[server]
 
+    _set_minecraft_server_property(path, property, value, check_if_property_exists)
+
+    return f"Property '{property}' für {server} gesetzt auf '{value}'"
+
+
+def _set_minecraft_server_property(path: str, property: str, value: str, check_if_property_exists: bool) -> None:
+
+    path = os.path.join(path, "server.properties")
+
     if not os.path.exists(path):
-        raise FileNotFoundError(f"server.properties für {server} nicht gefunden")
+        raise FileNotFoundError(f"{path} wurde nicht gefunden")
 
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -170,7 +180,7 @@ def set_minecraft_server_property(
     # Falls Property nicht existiert → am Ende hinzufügen
     if not found:
         if check_if_property_exists:
-            raise Exception(f"Property '{property}' für {server} wurde nicht gefunden in server.properties")
+            raise Exception(f"Property '{property}' wurde nicht gefunden in {path}")
         if not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         lines.append(f"{property}={value}\n")
@@ -179,12 +189,12 @@ def set_minecraft_server_property(
     with open(path, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
-    return f"Property '{property}' für {server} gesetzt auf '{value}'"
 
 
 @mcp.tool(tags={"Lilith"})
-def reset_minecraft_speedrun_server() -> str:
-    """Löscht den Minecraft Speedrun Server und erstellt einen neuen"""
+def reset_minecraft_speedrun_server(hardcore: bool = False) -> str:
+    """Löscht den Minecraft Speedrun Server und erstellt einen neuen.
+    MACHE IMMER ERST EINE RÜCKFRAGE OB DU DEN SERVER WIRKLICH LÖSCHEN SOLLST!"""
 
     path = "/mnt/samsung/speedrun/" # os.getenv("MINECRAFT_SPEEDRUN_PATH")
     url = "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar" # os.getenv("MINECRAFT_JAR_URL")
@@ -208,6 +218,76 @@ def reset_minecraft_speedrun_server() -> str:
 
     with open(f"{path}/eula.txt", "w") as f:
         f.write("eula=true\n")
+
+    properties = """#Minecraft server properties
+#Tue Sep 23 02:06:48 CEST 2025
+accepts-transfers=false
+allow-flight=false
+allow-nether=true
+broadcast-console-to-ops=true
+broadcast-rcon-to-ops=true
+bug-report-link=
+difficulty=easy
+enable-command-block=false
+enable-jmx-monitoring=false
+enable-query=false
+enable-rcon=false
+enable-status=true
+enforce-secure-profile=true
+enforce-whitelist=false
+entity-broadcast-range-percentage=100
+force-gamemode=false
+function-permission-level=2
+gamemode=survival
+generate-structures=true
+generator-settings={}
+hardcore={HARDCORE_MODE}
+hide-online-players=false
+initial-disabled-packs=
+initial-enabled-packs=vanilla
+level-name=world
+level-seed=
+level-type=minecraft\:normal
+log-ips=true
+max-chained-neighbor-updates=1000000
+max-players=20
+max-tick-time=60000
+max-world-size=29999984
+motd=A Minecraft Server
+network-compression-threshold=256
+online-mode=true
+op-permission-level=4
+pause-when-empty-seconds=60
+player-idle-timeout=0
+prevent-proxy-connections=false
+pvp=true
+query.port=25565
+rate-limit=0
+rcon.password=
+rcon.port=25575
+region-file-compression=deflate
+require-resource-pack=false
+resource-pack=
+resource-pack-id=
+resource-pack-prompt=
+resource-pack-sha1=
+server-ip=
+server-port=25565
+simulation-distance=10
+spawn-monsters=true
+spawn-protection=16
+sync-chunk-writes=true
+text-filtering-config=
+text-filtering-version=0
+use-native-transport=true
+view-distance=10
+white-list=false
+"""
+
+    properties = properties.replace("{HARDCORE_MODE}", "true" if hardcore else "false")
+
+    with open(os.path.join(path, "server.properties"), "w", encoding="utf-8") as f:
+        f.write(properties)
 
     subprocess.run(["sudo", "service", "minecraft_speedrun", "start"], check=True)
 

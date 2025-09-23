@@ -158,7 +158,7 @@ async def handle_message(message):
 
                 if not isinstance(message.channel, discord.DMChannel):
 
-                    member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members if m.status == Status.online])
+                    member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members if m.status in [Status.online, Status.idle] ])
 
                     logging.info(member_list)
 
