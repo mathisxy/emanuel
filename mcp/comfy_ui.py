@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from typing import Dict, Annotated
@@ -98,6 +99,7 @@ class ComfyUI:
                         print("Status:", msg)
 
                         if msg.get("type") == "progress":
+                            logging.info(msg)
                             current = float(msg["data"]["value"])
                             total = float(msg["data"]["max"])
 

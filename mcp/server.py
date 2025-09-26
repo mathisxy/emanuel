@@ -419,7 +419,6 @@ async def remove_image_background(
         image: Annotated[str, "Exakten Dateinamen angeben"],
         model: Literal["RMBG-2.0"],
         sensitivity: float = 1.0,
-        process_res: int = 1024,
         mask_blur: int = 0,
         mask_offset: int = 0,
         invert_output: bool = False,
@@ -448,6 +447,9 @@ async def remove_image_background(
 
         if not rmbg_node_id:
             raise ValueError("RMBG-Node nicht im Workflow gefunden!")
+
+
+        process_res: int = 1952 # max
 
         # 2. Parameter updaten
         rmbg_node = workflow[rmbg_node_id]
