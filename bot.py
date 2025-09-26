@@ -124,7 +124,7 @@ async def handle_message(message):
                     if msg.attachments:
                         for attachment in msg.attachments:
 
-                            if attachment.content_type and "image" in attachment.content_type:
+                            if attachment.content_type and attachment.content_type in ["image/png", "image/jpeg"]:
                                 image_bytes = await attachment.read()
                                 image_filename = attachment.filename
 
@@ -164,7 +164,7 @@ async def handle_message(message):
 
                     instructions += f"""Du bist im Discord Channel: {message.channel.name}
                     
-                    Hier ist eine Liste aller Mitglieder die du taggen darfst:
+                    Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
                     {member_list}
                     
                     Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@ID> (z.B: <@123456789>).
