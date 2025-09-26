@@ -376,18 +376,19 @@ async def wait_for_vram(required_gb:float=8, timeout:float=20, interval:float=1)
             else:
                 await asyncio.sleep(interval)
 
-async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, keep_alive: str|None = None) -> str:
+async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, keep_alive: str|None = None, timeout: float|None = None) -> str:
 
     model_name = model_name if model_name else os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
     keep_alive = keep_alive if keep_alive else os.getenv("OLLAMA_KEEP_ALIVE", "10m")
+    timeout = timeout if timeout else os.getenv("OLLAMA_TIMEOUT", None)
 
     async with chat.lock:
 
         try:
 
             # Rufe das Modell auf
-            response = await chat.client.chat(
+            coroutine = chat.client.chat(
                 model=model_name,
                 messages=chat.history,
                 stream=False,
@@ -396,6 +397,11 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
                     'temperature': temperature
                 }
             )
+
+            if timeout:
+                respone = await asyncio.wait_for(coroutine, timeout)
+            else:
+                response = await coroutine
 
             logging.info(response)
 
