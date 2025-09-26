@@ -16,6 +16,7 @@ from discord_buttons import ProgressButton
 from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
     DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 
+logging.basicConfig(filename="bot.log", level=logging.INFO)
 load_dotenv()
 
 api_key = os.getenv("API_KEY")

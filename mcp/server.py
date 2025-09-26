@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 import random
 import socket
@@ -15,6 +16,8 @@ from fastmcp import FastMCP, Context
 from comfy_ui import ComfyUI
 from comfy_ui import ComfyUIEvent, ComfyUIProgress
 from comfy_ui import ComfyUIImage
+
+logging.basicConfig(filename="server.log", level=logging.INFO)
 
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
@@ -449,7 +452,7 @@ async def remove_image_background(
             raise ValueError("RMBG-Node nicht im Workflow gefunden!")
 
 
-        process_res: int = 1952 # max
+        process_res: int = 1920 # max
 
         # 2. Parameter updaten
         rmbg_node = workflow[rmbg_node_id]

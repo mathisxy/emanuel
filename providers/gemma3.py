@@ -21,8 +21,6 @@ import logging
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
     DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp, DiscordMessageRemoveTmp
 
-logging.basicConfig(filename="bot.log", level=logging.INFO)
-
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
 
     dict_tools = []
