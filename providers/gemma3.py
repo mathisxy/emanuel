@@ -11,6 +11,7 @@ from typing import List, Dict
 import GPUtil
 import fastmcp
 import tiktoken
+from asgiref.timeout import timeout
 from fastmcp import Client
 from fastmcp.client.client import CallToolResult
 from fastmcp.client.logging import LogMessage
@@ -474,7 +475,7 @@ Zeige am besten auch ein Beispiel dafür wie es richtig geht.
     reasoning_chat.history.append({"role": "system", "content": context})
 
     await wait_for_vram(required_gb=11)
-    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b")
+    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", timeout=360)
 
     logging.info(reasoning)
 
