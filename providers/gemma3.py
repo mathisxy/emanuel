@@ -382,26 +382,25 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
     temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
     keep_alive = keep_alive if keep_alive else os.getenv("OLLAMA_KEEP_ALIVE", "10m")
     timeout = timeout if timeout else os.getenv("OLLAMA_TIMEOUT", None)
+    timeout = float(timeout)
 
     async with chat.lock:
 
         try:
 
             # Rufe das Modell auf
-            coroutine = chat.client.chat(
-                model=model_name,
-                messages=chat.history,
-                stream=False,
-                keep_alive=keep_alive,
-                options={
-                    'temperature': temperature
-                }
+            response = await asyncio.wait_for(
+                chat.client.chat(
+                    model=model_name,
+                    messages=chat.history,
+                    stream=False,
+                    keep_alive=keep_alive,
+                    options={
+                        'temperature': temperature
+                    }
+                ),
+                timeout=timeout,
             )
-
-            if timeout:
-                respone = await asyncio.wait_for(coroutine, timeout)
-            else:
-                response = await coroutine
 
             logging.info(response)
 
