@@ -119,7 +119,7 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.content if role != "user" else f"[#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}] {msg.content}"
+                    content = f"[#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}] {msg.content}"
                     images = []
 
                     if msg.attachments:
@@ -152,6 +152,8 @@ async def handle_message(message):
                     history.append({"role": role, "content": content, **({"images": images} if images else {})})
 
                 history.reverse()
+
+                logging.info(history)
 
                 instructions = f"Du bist {os.getenv("NAME")}. "
 

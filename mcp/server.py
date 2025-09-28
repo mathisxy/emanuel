@@ -421,7 +421,7 @@ async def remove_image_background(
         ctx: Context,
         image: Annotated[str, "Exakten Dateinamen angeben"],
         model: Literal["RMBG-2.0"],
-        sensitivity: float = 1.0,
+        sensitivity: Annotated[float, "Wert zwischen 0.0 und 1.0"] = 1.0,
         mask_blur: int = 0,
         mask_offset: int = 0,
         invert_output: bool = False,
@@ -431,6 +431,9 @@ async def remove_image_background(
         timeout: Annotated[int, "Sekunden"] = 30,
 ) -> Image:
     """Hintergrundentfernungstool: Entfernt den Hintergrund des übergebenen Bildes"""
+
+    if not 0.0 <= sensitivity <= 1.0:
+        raise ValueError("Sensitivity muss zwischen 0.0 und 1.0 liegen.")
 
 
     comfy = ComfyUI()
