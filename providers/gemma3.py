@@ -6,12 +6,11 @@ import os
 import re
 import secrets
 import time
-from typing import List, Dict
+from typing import List, Dict, Literal
 
 import GPUtil
 import fastmcp
 import tiktoken
-from asgiref.timeout import timeout
 from fastmcp import Client
 from fastmcp.client.client import CallToolResult
 from fastmcp.client.logging import LogMessage
@@ -377,7 +376,7 @@ async def wait_for_vram(required_gb:float=8, timeout:float=20, interval:float=1)
             else:
                 await asyncio.sleep(interval)
 
-async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, keep_alive: str|None = None, timeout: float|None = None) -> str:
+async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, think:bool|Literal["low", "medium", "high"]|None = None, keep_alive: str|None = None, timeout: float|None = None) -> str:
 
     model_name = model_name if model_name else os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
@@ -397,8 +396,9 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
                     stream=False,
                     keep_alive=keep_alive,
                     options={
-                        'temperature': temperature
-                    }
+                        'temperature': temperature,
+                    },
+                    **({"think": think} if think is not None else {})
                 ),
                 timeout=timeout,
             )
@@ -445,7 +445,6 @@ Als Überblick bekommst du:
  
 Erwähne zuerst einmal welcher Fehler aufgetreten ist.
 Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er behoben werden kann.
-Zeige am besten auch ein Beispiel dafür wie es richtig geht.
 
 
 ***Instruktionen für den Assistenten*** 
@@ -475,7 +474,7 @@ Zeige am besten auch ein Beispiel dafür wie es richtig geht.
     reasoning_chat.history.append({"role": "system", "content": context})
 
     await wait_for_vram(required_gb=11)
-    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", timeout=360)
+    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", think="low", timeout=360)
 
     logging.info(reasoning)
 

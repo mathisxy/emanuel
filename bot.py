@@ -119,7 +119,7 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = f"[#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}] {msg.content}"
+                    content = msg.content if msg.author == bot.user else f"[#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}] {msg.content}"
                     images = []
 
                     if msg.attachments:
@@ -155,7 +155,7 @@ async def handle_message(message):
 
                 logging.info(history)
 
-                instructions = f"Du bist {os.getenv("NAME")}. "
+                instructions = f"DU BIST {os.getenv("NAME")}!\n"
 
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
 
