@@ -8,7 +8,9 @@ import socket
 import subprocess
 from typing import List, Literal, Dict, Annotated
 
+import requests
 from fastmcp.utilities.types import Image, Audio
+from pyserxng import SearchResult
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
@@ -16,6 +18,8 @@ from fastmcp import FastMCP, Context
 from comfy_ui import ComfyUI
 from comfy_ui import ComfyUIEvent, ComfyUIProgress
 from comfy_ui import ComfyUIImage
+
+import searxng
 
 logging.basicConfig(filename="server.log", level=logging.INFO)
 
@@ -43,6 +47,21 @@ def roll_dice(sides: int = 6) -> int:
     print("RESULT")
     print(result)
     return result
+
+@mcp.tool(tags={"Emanuel", "Lilith"})
+def web_search(query: str, news : Annotated[bool, "Explizit nach aktuellen Nachrichten suchen"] = False, result_count: int = 5) -> List:
+    """Für Informationen aus dem Web, z.B. über aktuelle Themen."""
+
+    results = searxng.web_search(query, news)
+
+    results_list = [
+        {"title": r.title, "url": r.url, "content": r.content}
+        for r in results.results[:result_count]
+    ]
+
+    logging.info(results_list)
+
+    return results_list
 
 @mcp.tool(tags={"Lilith"})
 def control_game_server(
@@ -193,14 +212,28 @@ def _set_minecraft_server_property(path: str, property: str, value: str, check_i
         f.writelines(lines)
 
 
+def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
+
+    manifest_url = os.getenv("MINECRAFT_MANIFEST_URL")
+    manifest = requests.get(manifest_url).json()
+
+    if version == "latest":
+        version = manifest["latest"]["release"]
+    elif version == "snapshot":
+        version = manifest["latest"]["snapshot"]
+
+    version_info = next(v for v in manifest["versions"] if v["id"] == version)
+    extended_version_info = requests.get(version_info["url"]).json()
+
+    return extended_version_info["downloads"]["server"]["url"]
 
 @mcp.tool(tags={"Lilith"})
-def reset_minecraft_speedrun_server(hardcore: bool = False) -> str:
+def reset_minecraft_speedrun_server(version: Literal["latest", "snapshot"]|str = "latest", hardcore: bool = False) -> str:
     """Löscht den Minecraft Speedrun Server und erstellt einen neuen.
     MACHE IMMER ERST EINE RÜCKFRAGE OB DU DEN SERVER WIRKLICH LÖSCHEN SOLLST!"""
 
-    path = "/mnt/samsung/speedrun/" # os.getenv("MINECRAFT_SPEEDRUN_PATH")
-    url = "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar" # os.getenv("MINECRAFT_JAR_URL")
+    path = os.getenv("MINECRAFT_SPEEDRUN_PATH")
+    url = _get_server_jar_url(version)
 
     subprocess.run(
         ["sudo", "service", "minecraft_speedrun", "stop"],
