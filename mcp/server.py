@@ -9,8 +9,8 @@ import subprocess
 from typing import List, Literal, Dict, Annotated
 
 import requests
+from dotenv import load_dotenv
 from fastmcp.utilities.types import Image, Audio
-from pyserxng import SearchResult
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
@@ -22,6 +22,8 @@ from comfy_ui import ComfyUIImage
 import searxng
 
 logging.basicConfig(filename="server.log", level=logging.INFO)
+
+load_dotenv()
 
 # FastMCP Server initialisieren
 mcp = FastMCP("game_servers")
@@ -215,6 +217,9 @@ def _set_minecraft_server_property(path: str, property: str, value: str, check_i
 def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
 
     manifest_url = os.getenv("MINECRAFT_MANIFEST_URL")
+
+    logging.info(manifest_url)
+
     manifest = requests.get(manifest_url).json()
 
     if version == "latest":
@@ -223,12 +228,17 @@ def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
         version = manifest["latest"]["snapshot"]
 
     version_info = next(v for v in manifest["versions"] if v["id"] == version)
+
+    logging.info(version_info)
+
     extended_version_info = requests.get(version_info["url"]).json()
+
+    logging.info(extended_version_info)
 
     return extended_version_info["downloads"]["server"]["url"]
 
 @mcp.tool(tags={"Lilith"})
-def reset_minecraft_speedrun_server(version: Literal["latest", "snapshot"]|str = "latest", hardcore: bool = False) -> str:
+def reset_minecraft_speedrun_server(hardcore: bool, version: Literal["latest", "snapshot"]|str = "latest") -> str:
     """Löscht den Minecraft Speedrun Server und erstellt einen neuen.
     MACHE IMMER ERST EINE RÜCKFRAGE OB DU DEN SERVER WIRKLICH LÖSCHEN SOLLST!"""
 

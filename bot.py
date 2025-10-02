@@ -1,8 +1,11 @@
 import asyncio
+import csv
 import importlib
 import io
 import logging
 import re
+from enum import member
+from telnetlib import STATUS
 from typing import List, Dict
 
 import discord
@@ -161,7 +164,8 @@ async def handle_message(message):
 
                 if not isinstance(message.channel, discord.DMChannel):
 
-                    member_list = "\n".join([f"- {m.display_name}: <@{m.id}>" for m in message.channel.members if m.status in [Status.online, Status.idle] ])
+                    member_list = _get_member_list(message.channel.members)
+                    member_list = "\n".join([f" - {m}" for m in member_list])
 
                     logging.info(member_list)
 
@@ -170,7 +174,7 @@ async def handle_message(message):
                     Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
                     {member_list}
                     
-                    Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@ID> (z.B: <@123456789>).
+                    Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789>).
                     
                     """
 
@@ -187,6 +191,20 @@ async def handle_message(message):
 
             except Exception as e:
                 await message.channel.send(str(e))
+
+def _get_member_list(members: List[discord.Member]) -> List[Dict[str, str | int]]:
+
+    member_dict = {m.id: {"Discord": m.display_name, "Discord ID": m.id} for m in members if m.status in [Status.online, Status.idle]}
+    extra_dict = {}
+    if os.path.exists(os.getenv("USERNAMES_PATH", "usernames.csv")):
+        with open(os.getenv("USERNAMES_PATH", "usernames.csv"), 'r', encoding='utf-8') as datei:
+            csv_reader = csv.DictReader(datei)
+            extra_dict = {int(row["Discord ID"]): {**row, "Discord ID": int(row["Discord ID"])} for row in csv_reader}
+
+    return [
+        { **extra_dict.get(key, {}), **member_dict.get(key, {}) }
+        for key in (member_dict.keys() | extra_dict.keys())
+    ]
 
 
 @bot.event
