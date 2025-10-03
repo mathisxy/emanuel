@@ -81,7 +81,7 @@ class OllamaChat:
     history: List[Dict[str, str]]
     tokenizer: tiktoken
 
-    max_tokens = 3700 if len(GPUtil.getGPUs()) == 0 else 64000
+    max_tokens = 3700 if len(GPUtil.getGPUs()) == 0 else int(os.getenv("MAX_TOKENS", 64000))
     print(f"MAX TOKENS: {max_tokens}")
 
     def __init__(self):

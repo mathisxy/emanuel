@@ -120,7 +120,7 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.content if msg.author == bot.user else f"<#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}> {msg.content}"
+                    content = msg.content if msg.author == bot.user else f"<#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.id}> {msg.content}"
                     images = []
 
                     if msg.attachments:
