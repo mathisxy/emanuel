@@ -12,66 +12,16 @@ import GPUtil
 import fastmcp
 import tiktoken
 from fastmcp import Client
-from fastmcp.client.client import CallToolResult
 from fastmcp.client.logging import LogMessage
+from fastmcp.contrib.mcp_mixin import mcp_tool
 from mcp import Tool
-from ollama import AsyncClient
+from ollama import AsyncClient, ChatResponse
 import logging
 
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
     DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp, DiscordMessageRemoveTmp
 
-def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict]:
-
-    dict_tools = []
-
-    for tool in mcp_tools:
-        dict_tools.append({
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.inputSchema,
-            }
-        })
-
-    return dict_tools
-
-def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
-
-    dict_tools = mcp_to_dict_tools(mcp_tools)
-
-    return f"""Du bist hilfreich und zuverlässig.
-Du machst keine zu langen Antworten.
-Du hast Zugriff auf folgende Tools:
-    
-{json.dumps(dict_tools, separators=(',', ':'), ensure_ascii=False)}
-
-Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
-Nutze die Tools immer nur wenn nötig!
-
-
-🔧 **Tools aufrufen**
-Verwende immer EXAKT dieses JSON-Format für die Tool-Calls:
-
-
-||```tool
-{{
-  "name": "tool1",
-  "arguments": {{
-    "parameter1": "wert1"
-  }}
-}}
-```||
- 
- 
-💡 **Erklärung wie es funktioniert**
-Deine Antworten werden nach regex r'```tool(.*?)```' durchsucht.
-Alle Treffer werden mit JSON geparst und dann aus der Antwort ausgeschnitten.
-Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte aufgerufen.
-Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit direkt nochmal aufgerufen.
-Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
-"""
+from providers.ollama_tool_calls import mcp_to_dict_tools, get_custom_tools_system_prompt, get_tools_system_prompt
 
 
 class OllamaChat:
@@ -176,17 +126,26 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
             mcp_tools = await client.list_tools()
 
             mcp_tools = filter_tool_list(mcp_tools)
+            mcp_dict_tools = mcp_to_dict_tools(mcp_tools)
 
             logging.info(mcp_tools)
+            logging.info(mcp_dict_tools)
 
-            system_prompt = get_tools_system_prompt(mcp_tools)
+            has_tool_integration = os.getenv("TOOL_INTEGRATION", "").lower() == "true"
+
+            system_prompt = instructions
+
+            if not has_tool_integration:
+                system_prompt += get_custom_tools_system_prompt(mcp_tools)
+            else:
+                system_prompt += get_tools_system_prompt()
 
             logging.debug(f"SYSTEM PROMPT: {system_prompt}")
 
             enc = tiktoken.get_encoding("cl100k_base")  # GPT-ähnlicher Tokenizer
             logging.info(f"System Message Tokens: {len(enc.encode(system_prompt))}")
 
-            instructions = {"role": "system", "content": f"{instructions}\n\n{system_prompt}"}
+            instructions = {"role": "system", "content": system_prompt}
 
             chat.update_history(history, instructions)
 
@@ -196,16 +155,19 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                 await wait_for_vram(required_gb=11)
 
-                response = await call_ollama(chat)
+                response = await call_ollama(chat, tools= mcp_to_dict_tools(mcp_tools) if has_tool_integration else None)
 
-                chat.history.append({"role": "assistant", "content": response})
-                await queue.put(DiscordMessageReply(response))
+                if response.message.content:
 
+                    chat.history.append({"role": "assistant", "content": response.message.content})
+                    await queue.put(DiscordMessageReply(response.message.content))
 
                 try:
-                    tool_calls = extract_tool_calls(response)
+                    if has_tool_integration and response.message.tool_calls:
+                        tool_calls = [{"name": t.function.name, "arguments": t.function.arguments} for t in response.message.tool_calls]
+                    else:
+                        tool_calls = extract_custom_tool_calls(response.message.content)
                 except Exception as e:
-                    await queue.put(DiscordMessageReply(response))
 
                     logging.error(e)
 
@@ -231,6 +193,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                     tool_image_results = []
                     tool_file_results = []
 
+                    successfully_called_tools = []
+
                     for tool_call in tool_calls:
 
                         print(f"TOOL CALL: {tool_call.get("name")}")
@@ -238,8 +202,10 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         name = tool_call.get("name")
                         arguments = tool_call.get("arguments", {})
 
-
                         try:
+
+                            await queue.put(DiscordMessageReplyTmp(name, f"Das Tool {name} wird aufgerufen: {arguments}"))
+
                             result = await client.call_tool(name, arguments)
 
                             logging.info(f"Tool Call Result bekommen für {name}")
@@ -249,7 +215,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                             else:
 
-                                process_tool_result(name, result, tool_results, tool_image_results, tool_file_results)
+                                process_tool_result(name, result, tool_results, tool_image_results, tool_file_results, successfully_called_tools)
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
@@ -270,7 +236,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
 
                     if tool_results:
-                        tool_results_message = json.dumps({"tool_results": tool_results})
+                        tool_results_message = json.dumps({"successfully_called_tools": successfully_called_tools, "tool_results": tool_results})
 
                         print(tool_results_message)
 
@@ -308,7 +274,7 @@ def filter_tool_list(tools: List[Tool]):
     ]
 
 
-def extract_tool_calls(text: str) -> List[Dict]:
+def extract_custom_tool_calls(text: str) -> List[Dict]:
     tool_calls = []
     pattern = r'```tool(.*?)```'
 
@@ -323,9 +289,12 @@ def extract_tool_calls(text: str) -> List[Dict]:
 
     return tool_calls
 
-def process_tool_result(name: str, result: CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List):
+def process_tool_result(name: str, result: fastmcp.client.client.CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List, successfully_called_tools: List):
 
     logging.info(result.content[0].type)
+
+    if result.content[0].type == "text":
+        logging.info(result.content[0].text)
 
     if result.content[0].type == "image" or result.content[0].type == "audio":
 
@@ -349,6 +318,8 @@ def process_tool_result(name: str, result: CallToolResult, tool_results: List, t
 
     else:
         tool_results.append({name: f"{result.data}"})
+
+    successfully_called_tools.append(name)
 
 
 import pynvml
@@ -376,7 +347,7 @@ async def wait_for_vram(required_gb:float=8, timeout:float=20, interval:float=1)
             else:
                 await asyncio.sleep(interval)
 
-async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, think:bool|Literal["low", "medium", "high"]|None = None, keep_alive: str|None = None, timeout: float|None = None) -> str:
+async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, think:bool|Literal["low", "medium", "high"]|None = None, tools: List[Dict]|None = None,  keep_alive: str|None = None, timeout: float|None = None) -> ChatResponse:
 
     model_name = model_name if model_name else os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
@@ -399,18 +370,19 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
                     options={
                         'temperature': temperature,
                     },
-                    **({"think": think} if think is not None else {})
+                    **({"think": think} if think is not None else {}),
+                    **({"tools": tools} if tools is not None else {}),
                 ),
                 timeout=timeout,
             )
 
             logging.info(response)
 
-            return response['message']['content']
+            return response # ['message']['content']
 
         except Exception as e:
             logging.error(e)
-            return f"Ollama Fehler: {str(e)}"
+            raise Exception(f"Ollama Fehler: {e}")
         
 
 
@@ -477,8 +449,10 @@ Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er
     await wait_for_vram(required_gb=11)
     reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", think="low", timeout=360)
 
-    logging.info(reasoning)
+    reasoning_content = reasoning.message.content
 
-    return reasoning
+    logging.info(reasoning_content)
+
+    return reasoning_content
 
 

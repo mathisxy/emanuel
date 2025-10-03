@@ -87,10 +87,7 @@ async def handle_message(message):
                                 await message.channel.send(file=file)
 
                             elif isinstance(event, DiscordMessageReply):
-                                reply = event.value.strip()
-                                pattern = r'(<start_of_image>|\<#.*?>)'
-                                reply = re.sub(pattern, '', reply)
-                                print(f"REPLY: {reply}")
+                                reply = _clean_reply(event.value)
                                 if not reply:
                                     return
                                 if len(reply) > 2000:
@@ -120,7 +117,7 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.content if msg.author == bot.user else f"<#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.id}> {msg.content}"
+                    content = msg.content if msg.author == bot.user else f"<#Nachricht von <@{msg.author.id}> um {msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")}> {msg.content}"
                     images = []
 
                     if msg.attachments:
@@ -156,7 +153,7 @@ async def handle_message(message):
 
                 logging.info(history)
 
-                instructions = f"DU BIST {os.getenv("NAME")}!\n"
+                instructions = f"DU BIST {os.getenv("NAME")}! Deine Discord ID ist {os.getenv("DISCORD_TOKEN")}.\n"
 
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
 
@@ -203,6 +200,13 @@ def _get_member_list(members: List[discord.Member]) -> List[Dict[str, str | int]
         { **extra_dict.get(key, {}), **member_dict.get(key, {}) }
         for key in (member_dict.keys() | extra_dict.keys())
     ]
+
+def _clean_reply(reply: str) -> str:
+
+    pattern = r'(<start_of_image>|\<#.*?>)'
+    reply = re.sub(pattern, '', reply)
+    logging.info(f"REPLY: {reply}")
+    return reply.strip()
 
 
 @bot.event
