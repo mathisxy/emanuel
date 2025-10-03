@@ -39,7 +39,7 @@ mcp = FastMCP("game_servers")
 #     stop = "stop",
 #     restart = "restart"
 
-@mcp.tool(tags={"Emanuel", "Lilith"})
+@mcp.tool(tags={"Emanuel", "Lilith", "Peter"})
 def roll_dice(sides: int = 6) -> int:
     """Würfelt einen Würfel mit der angegebenen Seitenanzahl"""
     if sides < 2:
@@ -50,7 +50,7 @@ def roll_dice(sides: int = 6) -> int:
     print(result)
     return result
 
-@mcp.tool(tags={"Emanuel", "Lilith"})
+@mcp.tool(tags={"Emanuel", "Lilith", "Peter"})
 def web_search(query: str, news : Annotated[bool, "Explizit nach aktuellen Nachrichten suchen"] = False, result_count: int = 5) -> List:
     """Für Informationen aus dem Web, z.B. über aktuelle Themen."""
 
@@ -65,7 +65,7 @@ def web_search(query: str, news : Annotated[bool, "Explizit nach aktuellen Nachr
 
     return results_list
 
-@mcp.tool(tags={"Lilith"})
+@mcp.tool(tags={"Lilith", "Peter"})
 def control_game_server(
         servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]],
         operation: Literal["status", "start", "stop", "restart"]
@@ -155,7 +155,7 @@ def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal"
     return domain, port
 
 
-@mcp.tool(tags={"Lilith"})
+@mcp.tool(tags={"Lilith", "Peter"})
 def set_minecraft_server_property(
         server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun"],
         property: str,
@@ -237,7 +237,7 @@ def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
 
     return extended_version_info["downloads"]["server"]["url"]
 
-@mcp.tool(tags={"Lilith"})
+@mcp.tool(tags={"Lilith", "Peter"})
 def reset_minecraft_speedrun_server(hardcore: bool, version: Literal["latest", "snapshot"]|str = "latest") -> str:
     """Löscht den Minecraft Speedrun Server und erstellt einen neuen.
     MACHE IMMER ERST EINE RÜCKFRAGE OB DU DEN SERVER WIRKLICH LÖSCHEN SOLLST!"""
@@ -339,7 +339,7 @@ white-list=false
 
     return "Der Minecraft Speedrun Server wurde resettet"
 
-@mcp.tool(tags={"Lilith"})
+@mcp.tool(tags={"Lilith", "Peter"})
 def update_enshrouded_server() -> str:
     """Updated den Enshrouded Server"""
 
@@ -372,7 +372,7 @@ def update_enshrouded_server() -> str:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
 
 
-@mcp.tool(tags={"Emanuel", "Lilith"})
+@mcp.tool(tags={"Emanuel", "Lilith", "Peter"})
 def call_police(message: str) -> str:
     """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
@@ -417,7 +417,7 @@ async def generate_image(
         await asyncio.sleep(1)
         comfy.free_models()
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def edit_image(
         ctx: Context,
         input_image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -459,7 +459,7 @@ async def edit_image(
         comfy.free_models()
 
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def remove_image_background(
         ctx: Context,
         image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -587,7 +587,7 @@ async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, 
         format="png",
     )
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def generate_audio(
         ctx: Context,
         model: Literal["ACE-Step-V1-3.5B"],
@@ -671,7 +671,7 @@ async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     )
 
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def free_image_generation_vram(including_execution_cache: bool = True) -> bool:
 
     ComfyUI().free_models(including_execution_cache)

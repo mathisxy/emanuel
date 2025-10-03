@@ -4,8 +4,6 @@ import importlib
 import io
 import logging
 import re
-from enum import member
-from telnetlib import STATUS
 from typing import List, Dict
 
 import discord
@@ -90,7 +88,7 @@ async def handle_message(message):
 
                             elif isinstance(event, DiscordMessageReply):
                                 reply = event.value.strip()
-                                pattern = r'(<start_of_image>|\[#.*?\])'
+                                pattern = r'(<start_of_image>|\<#.*?>)'
                                 reply = re.sub(pattern, '', reply)
                                 print(f"REPLY: {reply}")
                                 if not reply:
@@ -122,13 +120,13 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.content if msg.author == bot.user else f"[#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}] {msg.content}"
+                    content = msg.content if msg.author == bot.user else f"<#{msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")} von {msg.author.display_name}> {msg.content}"
                     images = []
 
                     if msg.attachments:
                         for attachment in msg.attachments:
 
-                            if attachment.content_type and attachment.content_type in ["image/png", "image/jpeg"]:
+                            if attachment.content_type and os.getenv("IMAGE_MODEL", "").lower() == "true" and attachment.content_type in ["image/png", "image/jpeg"]:
                                 image_bytes = await attachment.read()
                                 image_filename = attachment.filename
 
@@ -140,14 +138,14 @@ async def handle_message(message):
 
                                 images.append(save_path)
 
-                                content += f"\n[#Bildname: {attachment.filename}]"
+                                content += f"\n<#Bildname: {attachment.filename}>"
                             elif attachment.content_type and "text" in attachment.content_type:
                                 text_bytes = await attachment.read()
                                 text_content = text_bytes.decode("utf-8")
 
-                                content += f"\n[#Dateiname: {attachment.filename}, ausgelesener Inhalt folgt:]\n{text_content}"
+                                content += f"\n<#Dateiname: {attachment.filename}, ausgelesener Inhalt folgt:>\n{text_content}"
                             else:
-                                content += f"\n[#Dateiname: {attachment.filename}]"
+                                content += f"\n<#Dateiname: {attachment.filename}>"
 
                     if not content and not images:
                         continue

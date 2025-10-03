@@ -45,7 +45,7 @@ def get_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 Du machst keine zu langen Antworten.
 Du hast Zugriff auf folgende Tools:
     
-{json.dumps(dict_tools, indent=0, separators=(',', ': '), ensure_ascii=False)}
+{json.dumps(dict_tools, separators=(',', ':'), ensure_ascii=False)}
 
 Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
 Nutze die Tools immer nur wenn nötig!
@@ -380,6 +380,7 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
 
     model_name = model_name if model_name else os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
     temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
+    think = think if think else os.getenv("THINK", None)
     keep_alive = keep_alive if keep_alive else os.getenv("OLLAMA_KEEP_ALIVE", "10m")
     timeout = timeout if timeout else os.getenv("OLLAMA_TIMEOUT", None)
     timeout = float(timeout)
