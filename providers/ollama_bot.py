@@ -13,7 +13,6 @@ import fastmcp
 import tiktoken
 from fastmcp import Client
 from fastmcp.client.logging import LogMessage
-from fastmcp.contrib.mcp_mixin import mcp_tool
 from mcp import Tool
 from ollama import AsyncClient, ChatResponse
 import logging
@@ -44,7 +43,7 @@ class OllamaChat:
 
     def update_history(self, new_history: List[Dict[str, str]], instructions_entry: Dict[str, str], min_overlap=1):
 
-        history_without_tool_results = [x for x in self.history if not (x["role"] == "system" and x["content"].startswith('{"tool_results":'))]
+        history_without_tool_results = [x for x in self.history if not (x["role"] == "system" and x["content"].startswith('#'))]
 
         #print("HISTORY WITHOUT TOOLS")
         #print(history_without_tool_results)
@@ -151,11 +150,19 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
             logging.debug(f"HISTORY: {chat.history}")
 
+            tool_call_errors = False
+
             for i in range(int(os.getenv("MAX_TOOL_CALLS", 7))):
+
+                logging.info(f"Tool Call Errors: {tool_call_errors}")
 
                 await wait_for_vram(required_gb=11)
 
-                response = await call_ollama(chat, tools= mcp_to_dict_tools(mcp_tools) if has_tool_integration else None)
+                use_integrated_tools = has_tool_integration and not (os.getenv("DENY_RECURSIVE_TOOL_CALLING", "").lower() == "true" and not tool_call_errors and i > 0)
+
+                logging.info(f"Use integrated tools: {use_integrated_tools}")
+
+                response = await call_ollama(chat, tools= mcp_to_dict_tools(mcp_tools) if use_integrated_tools else None)
 
                 if response.message.content:
 
@@ -167,22 +174,30 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         tool_calls = [{"name": t.function.name, "arguments": t.function.arguments} for t in response.message.tool_calls]
                     else:
                         tool_calls = extract_custom_tool_calls(response.message.content)
+
+                    tool_call_errors = False
+
                 except Exception as e:
 
                     logging.error(e)
 
-                    try:
-                        await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
-                        reasoning = await error_reasoning(str(e), chat)
+                    if os.getenv("HELP_DISCORD_ID"):
+                        await queue.put(DiscordMessageReply(f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}"))
+                        return
 
-                    except Exception as f:
-                        logging.error(f)
-                        reasoning = str(e)
+                    # try:
+                    #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                    #     reasoning = await error_reasoning(str(e), chat)
+                    #
+                    # except Exception as f:
+                    #     logging.error(f)
+                    #     reasoning = str(e)
+                    #
+                    # finally:
+                    #     await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
 
-                    finally:
-                        await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
-
-                    chat.history.append({"role": "system", "content": reasoning})
+                    chat.history.append({"role": "system", "content": str(e)})
+                    tool_call_errors = True
 
                     continue
 
@@ -193,14 +208,13 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                     tool_image_results = []
                     tool_file_results = []
 
-                    successfully_called_tools = []
-
                     for tool_call in tool_calls:
 
-                        print(f"TOOL CALL: {tool_call.get("name")}")
+                        logging.info(f"TOOL CALL: {tool_call}")
 
                         name = tool_call.get("name")
                         arguments = tool_call.get("arguments", {})
+
 
                         try:
 
@@ -210,35 +224,45 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                             logging.info(f"Tool Call Result bekommen für {name}")
 
-                            if not result.content:
+                            if result.content is None:
+                                logging.warning("Kein Tool Result Content, manuelle Unterbrechung")
                                 break # Manuelle Unterbrechung
 
                             else:
 
-                                process_tool_result(name, result, tool_results, tool_image_results, tool_file_results, successfully_called_tools)
+                                if use_integrated_tools:
+                                    chat.history.append({"role": "assistant", "content": f"#<function_call>{tool_call}</function_call>"})
+
+                                process_tool_result(name, result, tool_results, tool_image_results, tool_file_results)
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
                             logging.error(e)
 
-                            try:
-                                await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
-                                reasoning = await error_reasoning(str(e), chat)
+                            if os.getenv("HELP_DISCORD_ID"):
+                                await queue.put(DiscordMessageReply(f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}"))
+                                return
 
-                            except Exception:
-                                await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
-                                reasoning = str(e)
+                            # try:
+                            #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                            #     reasoning = await error_reasoning(str(e), chat)
+                            #
+                            # except Exception:
+                            #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
+                            #     reasoning = str(e)
+                            #
+                            # finally:
+                            #     await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
 
-                            finally:
-                                await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+                            tool_results.append({name: str(e)})
 
-                            tool_results.append({name: reasoning})
+                            tool_call_errors = True
 
 
                     if tool_results:
-                        tool_results_message = json.dumps({"successfully_called_tools": successfully_called_tools, "tool_results": tool_results})
+                        tool_results_message = f"#{json.dumps({"tool_results": tool_results})}"
 
-                        print(tool_results_message)
+                        logging.info(tool_results_message)
 
                         chat.history.append({"role": "system", "content": tool_results_message})
 
@@ -251,7 +275,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         chat.history.append({"role": "assistant", "content": f"Du hast eine Datei gesendet: {filename}"})
 
 
-                    print(chat.history)
+                    logging.info(chat.history)
 
                     if not tool_results:
                         break
@@ -289,7 +313,7 @@ def extract_custom_tool_calls(text: str) -> List[Dict]:
 
     return tool_calls
 
-def process_tool_result(name: str, result: fastmcp.client.client.CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List, successfully_called_tools: List):
+def process_tool_result(name: str, result: fastmcp.client.client.CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List):
 
     logging.info(result.content[0].type)
 
@@ -318,9 +342,6 @@ def process_tool_result(name: str, result: fastmcp.client.client.CallToolResult,
 
     else:
         tool_results.append({name: f"{result.data}"})
-
-    successfully_called_tools.append(name)
-
 
 import pynvml
 
@@ -386,73 +407,73 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
         
 
 
-async def error_reasoning(
-        error_message: str,
-        chat: OllamaChat,
-):
-
-    instructions = chat.history[0].get("content")
-    assistant_messages = []
-    user_message = ""
-
-    for message in reversed(chat.history):
-
-        logging.info(message)
-
-        if message.get("role") == "user":
-            logging.info("ist user message -> break")
-            user_message = message.get("content")
-            break
-
-        assistant_messages.insert(0, message.get("content"))
-
-    # Formatierung
-
-    context = f"""
-***DEINE AUFGABE***
-Du hilfst einem KI Assistenten (Gemma3 12B) einen Fehler zu beheben.
-Als Überblick bekommst du:
- - die Instruktionen, die dieser Assistent bekommen hat
- - die letzten relevanten Nachrichten
- - die Fehlermeldung
- 
-Erwähne zuerst einmal welcher Fehler aufgetreten ist.
-Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er behoben werden kann.
-
-
-***Instruktionen für den Assistenten*** 
-
-\"{instructions}\"
-
-
-***Letzte Nachricht des Nutzers*** 
-
-\"{user_message}\"
-
-
-***Darauffolgende Nachrichten des Assistenten*** 
-
-\"{"\n---\n".join(assistant_messages)}\"
-
-
-***Die Fehlermeldung***
-
-\"{error_message}\"
-"""
-
-    logging.info(context)
-
-    reasoning_chat = OllamaChat()
-    reasoning_chat.lock = chat.lock
-    reasoning_chat.history.append({"role": "system", "content": context})
-
-    await wait_for_vram(required_gb=11)
-    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", think="low", timeout=360)
-
-    reasoning_content = reasoning.message.content
-
-    logging.info(reasoning_content)
-
-    return reasoning_content
+# async def error_reasoning(
+#         error_message: str,
+#         chat: OllamaChat,
+# ):
+#
+#     instructions = chat.history[0].get("content")
+#     assistant_messages = []
+#     user_message = ""
+#
+#     for message in reversed(chat.history):
+#
+#         logging.info(message)
+#
+#         if message.get("role") == "user":
+#             logging.info("ist user message -> break")
+#             user_message = message.get("content")
+#             break
+#
+#         assistant_messages.insert(0, message.get("content"))
+#
+#     # Formatierung
+#
+#     context = f"""
+# ***DEINE AUFGABE***
+# Du hilfst einem KI Assistenten (Gemma3 12B) einen Fehler zu beheben.
+# Als Überblick bekommst du:
+#  - die Instruktionen, die dieser Assistent bekommen hat
+#  - die letzten relevanten Nachrichten
+#  - die Fehlermeldung
+#
+# Erwähne zuerst einmal welcher Fehler aufgetreten ist.
+# Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er behoben werden kann.
+#
+#
+# ***Instruktionen für den Assistenten***
+#
+# \"{instructions}\"
+#
+#
+# ***Letzte Nachricht des Nutzers***
+#
+# \"{user_message}\"
+#
+#
+# ***Darauffolgende Nachrichten des Assistenten***
+#
+# \"{"\n---\n".join(assistant_messages)}\"
+#
+#
+# ***Die Fehlermeldung***
+#
+# \"{error_message}\"
+# """
+#
+#     logging.info(context)
+#
+#     reasoning_chat = OllamaChat()
+#     reasoning_chat.lock = chat.lock
+#     reasoning_chat.history.append({"role": "system", "content": context})
+#
+#     await wait_for_vram(required_gb=11)
+#     reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", think="low", timeout=360)
+#
+#     reasoning_content = reasoning.message.content
+#
+#     logging.info(reasoning_content)
+#
+#     return reasoning_content
 
 

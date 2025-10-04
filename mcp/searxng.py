@@ -11,3 +11,5 @@ def web_search(query : str, news : bool = False) -> SearchResponse:
             results = client.search_news(query) if news else client.search(query)
             print(f"Found {len(results.results)} results")
             return results
+        else:
+            raise Exception("Zum SearXNG Server konnte keine Verbindung hergestellt werden")

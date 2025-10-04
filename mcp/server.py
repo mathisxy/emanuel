@@ -68,9 +68,13 @@ def web_search(query: str, news : Annotated[bool, "Explizit nach aktuellen Nachr
 @mcp.tool(tags={"Lilith", "Peter"})
 def control_game_server(
         servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]],
-        operation: Annotated[Literal["status", "start", "stop", "restart"], "Die Operation status gibt Online Status, Serveradresse, Servername und Spieleranzahl zurück"]
+        operation: Annotated[Literal["status", "start", "stop", "restart"], "Die Operation status gibt Online Status, Serveradresse, Servername und Spieleranzahl zurück. Außerdem sind start, stop und restart der Server möglich"]
 ) -> List[str]:
     """Management der Game-Server"""
+
+    if not servers:
+        raise Exception('Keine Server angegeben. Vorhandene Server: ["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]')
+
 
     output: List[str] = []
 
@@ -146,7 +150,7 @@ def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal"
 @mcp.tool(tags={"Lilith", "Peter"})
 def set_minecraft_server_property(
         server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun"],
-        property: str,
+        server_property: str,
         value: str,
         check_if_property_exists: bool = True,
 ) -> str:
@@ -164,12 +168,12 @@ def set_minecraft_server_property(
 
     path = server_paths[server]
 
-    _set_minecraft_server_property(path, property, value, check_if_property_exists)
+    _set_minecraft_server_property(path, server_property, value, check_if_property_exists)
 
-    return f"Property '{property}' für {server} gesetzt auf '{value}'"
+    return f"Property '{server_property}' für {server} gesetzt auf '{value}'"
 
 
-def _set_minecraft_server_property(path: str, property: str, value: str, check_if_property_exists: bool) -> None:
+def _set_minecraft_server_property(path: str, server_property: str, value: str, check_if_property_exists: bool) -> None:
 
     path = os.path.join(path, "server.properties")
 
@@ -184,18 +188,18 @@ def _set_minecraft_server_property(path: str, property: str, value: str, check_i
         # ignoriert Kommentare
         if line.strip().startswith("#"):
             continue
-        if line.startswith(f"{property}="):
-            lines[i] = f"{property}={value}\n"
+        if line.startswith(f"{server_property}="):
+            lines[i] = f"{server_property}={value}\n"
             found = True
             break
 
     # Falls Property nicht existiert → am Ende hinzufügen
     if not found:
         if check_if_property_exists:
-            raise Exception(f"Property '{property}' wurde nicht gefunden in {path}")
+            raise Exception(f"Property '{server_property}' wurde nicht gefunden in {path}")
         if not lines[-1].endswith("\n"):
             lines[-1] += "\n"
-        lines.append(f"{property}={value}\n")
+        lines.append(f"{server_property}={value}\n")
 
     # Datei überschreiben
     with open(path, "w", encoding="utf-8") as f:
@@ -225,8 +229,8 @@ def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
 
     return extended_version_info["downloads"]["server"]["url"]
 
-@mcp.tool(tags={"Lilith"})
-def reset_minecraft_speedrun_server(hardcore: bool, version: Literal["latest", "snapshot"]|str = "latest") -> str:
+@mcp.tool(tags={"Lilith", "Peter"})
+def reset_minecraft_speedrun_server(hardcore: bool, version: Annotated[str, "latest, snapshot sowie alle spezifische Minecraft Versionen können hier übergeben werden"] = "latest") -> str:
     """Löscht den Minecraft Speedrun Server und erstellt einen neuen.
     MACHE IMMER ERST EINE RÜCKFRAGE OB DU DEN SERVER WIRKLICH LÖSCHEN SOLLST!"""
 
@@ -327,7 +331,7 @@ white-list=false
 
     return "Der Minecraft Speedrun Server wurde resettet"
 
-@mcp.tool(tags={"Lilith"})
+@mcp.tool(tags={"Lilith", "Peter"})
 def update_enshrouded_server() -> str:
     """Updated den Enshrouded Server"""
 
@@ -360,12 +364,12 @@ def update_enshrouded_server() -> str:
         return f"Fehler beim Ausführen des Updates: {str(e)}"
 
 
-@mcp.tool(tags={"Emanuel", "Lilith"})
+@mcp.tool(tags={"Emanuel", "Lilith", "Peter"})
 def call_police(message: str) -> str:
     """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def generate_image(
         ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6"],
@@ -405,7 +409,7 @@ async def generate_image(
         await asyncio.sleep(1)
         comfy.free_models()
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def edit_image(
         ctx: Context,
         input_image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -447,7 +451,7 @@ async def edit_image(
         comfy.free_models()
 
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def remove_image_background(
         ctx: Context,
         image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -575,7 +579,7 @@ async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, 
         format="png",
     )
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def generate_audio(
         ctx: Context,
         model: Literal["ACE-Step-V1-3.5B"],
@@ -659,7 +663,7 @@ async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     )
 
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def free_image_generation_vram(including_execution_cache: bool = True) -> bool:
 
     ComfyUI().free_models(including_execution_cache)
@@ -669,7 +673,7 @@ async def free_image_generation_vram(including_execution_cache: bool = True) -> 
     return True
 
 
-@mcp.tool(tags={"Emanuel"})
+@mcp.tool(tags={"Emanuel", "Peter"})
 async def interrupt_image_generation() -> bool:
     #raise Exception("Test")
     comfy = ComfyUI()

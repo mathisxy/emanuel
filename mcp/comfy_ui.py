@@ -143,6 +143,7 @@ class ComfyUI:
                             return ComfyUIImage(image_bytes)
 
         except asyncio.TimeoutError:
+            self.interrupt()
             raise TimeoutError("Timed out waiting for ComfyUI response.")
         except ConnectionClosed as e:
             raise ConnectionError(f"WebSocket connection closed: {e}")

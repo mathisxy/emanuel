@@ -76,4 +76,4 @@ Deren Ergebnisse (tool_results) werden dann temporär an den Nachrichtenverlauf 
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 
 ⚠️ **WICHTIG**
-Rufe das Tool dann niemals wieder erneut auf, da es sonst zu einer Endlosschleife kommt! Antworte stattdessen dem User basierend auf den Ergebnissen."""
+Rufe das Tool dann NIEMALS wieder erneut auf, da es sonst zu einer Endlosschleife kommt! Antworte stattdessen dem User basierend auf den Ergebnissen."""
