@@ -170,7 +170,7 @@ def set_minecraft_server_property(
 
     _set_minecraft_server_property(path, server_property, value, check_if_property_exists)
 
-    return f"Property '{server_property}' für {server} gesetzt auf '{value}'"
+    return f"Die Property '{server_property}' für {server} wurde auf '{value}' gesetzt"
 
 
 def _set_minecraft_server_property(path: str, server_property: str, value: str, check_if_property_exists: bool) -> None:

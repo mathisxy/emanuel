@@ -33,7 +33,7 @@ class DiscordMessageTmpProtocol(Protocol):
 
 @dataclass
 class DiscordMessageReplyTmp(DiscordMessageReply, DiscordMessageTmpMixin):
-    pass
+    embed: bool = True
 
 @dataclass
 class DiscordMessageFileTmp(DiscordMessageFile, DiscordMessageTmpMixin):
@@ -102,22 +102,25 @@ class DiscordTemporaryMessagesController:
                     print("ADDED TEMP FILE")
                     print(self.messages)
             elif isinstance(message, DiscordMessageReplyTmp) or isinstance(message, DiscordMessageProgressTmp):
+                with_embed = (not isinstance(message, DiscordMessageReplyTmp)) or message.embed
+
                 embed = discord.Embed(
                     description=message.value,
                     color=discord.Color.dark_gray()
-                )
-                if message.key in self.messages.keys():
-                    embeds = self.messages[message.key].embeds
-                    if embeds:
-                        embed = embeds[0]
+                ) if with_embed else None
+
+                existing_msg = self.messages.get(message.key)
+
+                if existing_msg:
+                    if embed and existing_msg.embeds:
+                        embed = existing_msg.embeds[0]
                         embed.description = message.value
-                    await self.messages[message.key].edit(view=view, embed=embed)
-                    print("EDITED TEMP MESSAGE")
-                    print(self.messages)
+
+                    await self.messages[message.key].edit(view=view, embed=embed, content=None if embed else message.value)
+
                 else:
-                    self.messages[message.key] = await self.channel.send(view=view, embed=embed)
-                    print("ADDED TEMP MESSAGE")
-                    print(self.messages)
+                    self.messages[message.key] = await self.channel.send(view=view, embed=embed, content=None if embed else message.value)
+
             elif isinstance(message, DiscordMessageRemoveTmp):
                 msg = self.messages.pop(message.key, None)
                 if msg:

@@ -14,7 +14,7 @@ import tiktoken
 from fastmcp import Client
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
-from ollama import AsyncClient, ChatResponse
+from ollama import AsyncClient, ChatResponse, embed
 import logging
 
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
@@ -158,7 +158,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                 await wait_for_vram(required_gb=11)
 
-                use_integrated_tools = has_tool_integration and not (os.getenv("DENY_RECURSIVE_TOOL_CALLING", "").lower() == "true" and not tool_call_errors and i > 0)
+                deny_tools = os.getenv("DENY_RECURSIVE_TOOL_CALLING", "").lower() == "true" and not tool_call_errors and i > 0
+
+                use_integrated_tools = has_tool_integration and not deny_tools
 
                 logging.info(f"Use integrated tools: {use_integrated_tools}")
 
@@ -168,6 +170,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                     chat.history.append({"role": "assistant", "content": response.message.content})
                     await queue.put(DiscordMessageReply(response.message.content))
+
+                if deny_tools:
+                    break
 
                 try:
                     if has_tool_integration and response.message.tool_calls:
@@ -182,8 +187,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                     logging.error(e)
 
                     if os.getenv("HELP_DISCORD_ID"):
-                        await queue.put(DiscordMessageReply(f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}"))
-                        return
+                        await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
+                        break
 
                     # try:
                     #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
@@ -240,8 +245,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                             logging.error(e)
 
                             if os.getenv("HELP_DISCORD_ID"):
-                                await queue.put(DiscordMessageReply(f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}"))
-                                return
+                                await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
+                                break
 
                             # try:
                             #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
