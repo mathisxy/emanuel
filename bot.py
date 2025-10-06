@@ -153,8 +153,6 @@ async def handle_message(message):
 
                 logging.info(history)
 
-                instructions = f"DU BIST {os.getenv("NAME")}! Deine Discord ID ist {os.getenv("DISCORD_TOKEN")}.\n"
-
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
 
                 if not isinstance(message.channel, discord.DMChannel):
@@ -164,19 +162,24 @@ async def handle_message(message):
 
                     logging.info(member_list)
 
-                    instructions += f"""Du bist im Discord Channel: {message.channel.name}
+                    instructions = f"""Du bist im Discord Channel: {message.channel.name}
                     
-                    Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
-                    {member_list}
+Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
+{member_list}
                     
-                    Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789>).
+Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789>).
                     
-                    """
+"""
 
                 else:
-                    instructions += f"Du bist im DM Chat mit {message.author.display_name}.\n"
+                    instructions = f"Du bist im DM Chat mit {message.author.display_name}.\n"
 
                 instructions += os.getenv("INSTRUCTIONS")
+
+                instructions = instructions.replace("[#NAME]", os.getenv("NAME"))
+                instructions = instructions.replace("[#DISCORD_ID]", os.getenv("DISCORD_ID"))
+
+                logging.info(instructions)
 
                 task1 = asyncio.create_task(listener(queue))
                 task2 = asyncio.create_task(call_ai(history, instructions, queue, channel_name))
@@ -191,8 +194,8 @@ def _get_member_list(members: List[discord.Member]) -> List[Dict[str, str | int]
 
     member_dict = {m.id: {"Discord": m.display_name, "Discord ID": m.id} for m in members if m.status in [Status.online, Status.idle]}
     extra_dict = {}
-    if os.path.exists(os.getenv("USERNAMES_PATH", "usernames.csv")):
-        with open(os.getenv("USERNAMES_PATH", "usernames.csv"), 'r', encoding='utf-8') as datei:
+    if os.getenv("USERNAMES_PATH") and os.path.exists(os.getenv("USERNAMES_PATH")):
+        with open(os.getenv("USERNAMES_PATH"), 'r', encoding='utf-8') as datei:
             csv_reader = csv.DictReader(datei)
             extra_dict = {int(row["Discord ID"]): {**row, "Discord ID": int(row["Discord ID"])} for row in csv_reader}
 

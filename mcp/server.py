@@ -369,7 +369,7 @@ def call_police(message: str) -> str:
     """Ruft die Polizei, ratsam bei schweren Regelverstößen oder kriminellem Verhalten"""
     return f"Du hast die Polizei gerufen und ihr die Nachricht überbracht: {message}" #TODO Wirft einen Fehler
 
-@mcp.tool(tags={"Emanuel", "Peter"})
+@mcp.tool(tags={"Emanuel", "Peter", "Pinky"})
 async def generate_image(
         ctx: Context,
         model: Literal["FLUX.1-schnell-Q6", "FLUX.1-krea-dev-Q6"],
@@ -409,7 +409,7 @@ async def generate_image(
         await asyncio.sleep(1)
         comfy.free_models()
 
-@mcp.tool(tags={"Emanuel", "Peter"})
+@mcp.tool(tags={"Emanuel", "Peter", "Pinky"})
 async def edit_image(
         ctx: Context,
         input_image: Annotated[str, "Exakten Dateinamen angeben"],
@@ -451,7 +451,7 @@ async def edit_image(
         comfy.free_models()
 
 
-@mcp.tool(tags={"Emanuel", "Peter"})
+@mcp.tool(tags={"Emanuel", "Peter", "Pinky"})
 async def remove_image_background(
         ctx: Context,
         image: Annotated[str, "Exakten Dateinamen angeben"],

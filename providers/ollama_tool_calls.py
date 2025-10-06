@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict
+from typing import List, Dict, Literal
 
 from fastmcp.tools import Tool
 
@@ -21,11 +21,12 @@ def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict[str, str|Dict]]:
     return dict_tools
 
 
-def get_custom_tools_system_prompt(mcp_tools: List[Tool]) -> str:
+def get_custom_tools_system_prompt(mcp_tools: List[Tool], language: Literal["de" ,"en"] = "de") -> str:
 
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
-    return f"""
+    if language == "de":
+        return f"""
 Du bist hilfreich und zuverlässig.
 
 **WAS DU KANNST**
@@ -37,6 +38,8 @@ Du bist hilfreich und zuverlässig.
 Nutze die Tools, um Informationen zu erhalten und Aufgaben zu erledigen. Frage, wenn du dir unsicher bist. 
 Nutze die Tools immer nur wenn nötig!
 Wenn du gefragt wirst, was du kannst, listest du immer genau diese Tools auf!
+
+Du nutzt immer EXAKT den Namen und die Argumente der Tool-Call Beschreibungen!
 
 
 🔧 **Tools aufrufen**
@@ -61,10 +64,50 @@ Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 """
 
+    if language == "en":
+        return f"""
+You are helpful and reliable.
 
-def get_tools_system_prompt() -> str:
+**WHAT YOU CAN DO**
 
-    return """
+*You have access to the following tools:*
+
+{json.dumps(dict_tools, separators=(',', ': '), ensure_ascii=False)}
+
+Use these tools to get information and complete tasks.
+Ask if you're unsure.  
+Only use the tools when necessary!  
+If you are asked what you can do, always list exactly these tools!
+
+You always use EXACTLY the name and arguments of the tool call descriptions!
+
+
+🔧 **Calling Tools**
+Always use EXACTLY this JSON format for tool calls:
+
+||```tool
+{{
+  "name": "tool1",
+  "arguments": {{
+    "parameter1": "value1"
+  }}
+}}
+```||
+
+💡 **How it works**
+Your responses are searched using the regex `r'```tool(.*?)```'`.  
+All matches are parsed as JSON and then removed from the response.  
+If matches are found, the corresponding tools are executed based on the JSON objects.  
+The results are temporarily attached to the message history, and you are called again with them.  
+You can then respond to the user based on those results. The user does not see the raw results.
+"""
+
+
+
+def get_tools_system_prompt(language: Literal["de", "en"] = "de") -> str:
+
+    if language == "de":
+        return """
 
 ***Tool Calls***
 
@@ -77,3 +120,19 @@ Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die
 
 ⚠️ **WICHTIG**
 Rufe das Tool dann NIEMALS wieder erneut auf, da es sonst zu einer Endlosschleife kommt! Antworte stattdessen dem User basierend auf den Ergebnissen."""
+
+    if language == "en":
+        return """
+***Tool Calls***
+
+You have a list of tools (functions) that you can use. You are an expert at using these tools.
+
+💡 **How it works**  
+When you call a tool, the corresponding function is executed.  
+Its results (`tool_results`) are then temporarily attached to the message history as a system message, and you are immediately called again with them.  
+You can then respond to the user based on these results. The user does not see the raw results.
+
+⚠️ **IMPORTANT**  
+Never call the tool again after receiving its results — otherwise, it will cause an infinite loop!  
+Instead, respond to the user based on the results.
+"""

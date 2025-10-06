@@ -135,9 +135,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
             system_prompt = instructions
 
             if not has_tool_integration:
-                system_prompt += get_custom_tools_system_prompt(mcp_tools)
+                system_prompt += get_custom_tools_system_prompt(mcp_tools, language=os.getenv("LANGUAGE", "de"))
             else:
-                system_prompt += get_tools_system_prompt()
+                system_prompt += get_tools_system_prompt(language=os.getenv("LANGUAGE", "de"))
 
             logging.debug(f"SYSTEM PROMPT: {system_prompt}")
 
@@ -190,18 +190,18 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                         await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
                         break
 
-                    # try:
-                    #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
-                    #     reasoning = await error_reasoning(str(e), chat)
-                    #
-                    # except Exception as f:
-                    #     logging.error(f)
-                    #     reasoning = str(e)
-                    #
-                    # finally:
-                    #     await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+                    try:
+                        await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                        reasoning = await error_reasoning(str(e), chat)
 
-                    chat.history.append({"role": "system", "content": str(e)})
+                    except Exception as f:
+                        logging.error(f)
+                        reasoning = str(e)
+
+                    finally:
+                        await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+
+                    chat.history.append({"role": "system", "content": reasoning})
                     tool_call_errors = True
 
                     continue
@@ -248,18 +248,18 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                                 await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
                                 break
 
-                            # try:
-                            #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
-                            #     reasoning = await error_reasoning(str(e), chat)
-                            #
-                            # except Exception:
-                            #     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
-                            #     reasoning = str(e)
-                            #
-                            # finally:
-                            #     await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+                            try:
+                                await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                                reasoning = await error_reasoning(str(e), chat)
 
-                            tool_results.append({name: str(e)})
+                            except Exception:
+                                await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
+                                reasoning = str(e)
+
+                            finally:
+                                await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
+
+                            tool_results.append({name: reasoning})
 
                             tool_call_errors = True
 
@@ -412,73 +412,73 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
         
 
 
-# async def error_reasoning(
-#         error_message: str,
-#         chat: OllamaChat,
-# ):
-#
-#     instructions = chat.history[0].get("content")
-#     assistant_messages = []
-#     user_message = ""
-#
-#     for message in reversed(chat.history):
-#
-#         logging.info(message)
-#
-#         if message.get("role") == "user":
-#             logging.info("ist user message -> break")
-#             user_message = message.get("content")
-#             break
-#
-#         assistant_messages.insert(0, message.get("content"))
-#
-#     # Formatierung
-#
-#     context = f"""
-# ***DEINE AUFGABE***
-# Du hilfst einem KI Assistenten (Gemma3 12B) einen Fehler zu beheben.
-# Als Überblick bekommst du:
-#  - die Instruktionen, die dieser Assistent bekommen hat
-#  - die letzten relevanten Nachrichten
-#  - die Fehlermeldung
-#
-# Erwähne zuerst einmal welcher Fehler aufgetreten ist.
-# Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er behoben werden kann.
-#
-#
-# ***Instruktionen für den Assistenten***
-#
-# \"{instructions}\"
-#
-#
-# ***Letzte Nachricht des Nutzers***
-#
-# \"{user_message}\"
-#
-#
-# ***Darauffolgende Nachrichten des Assistenten***
-#
-# \"{"\n---\n".join(assistant_messages)}\"
-#
-#
-# ***Die Fehlermeldung***
-#
-# \"{error_message}\"
-# """
-#
-#     logging.info(context)
-#
-#     reasoning_chat = OllamaChat()
-#     reasoning_chat.lock = chat.lock
-#     reasoning_chat.history.append({"role": "system", "content": context})
-#
-#     await wait_for_vram(required_gb=11)
-#     reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", think="low", timeout=360)
-#
-#     reasoning_content = reasoning.message.content
-#
-#     logging.info(reasoning_content)
-#
-#     return reasoning_content
+async def error_reasoning(
+        error_message: str,
+        chat: OllamaChat,
+):
+
+    instructions = chat.history[0].get("content")
+    assistant_messages = []
+    user_message = ""
+
+    for message in reversed(chat.history):
+
+        logging.info(message)
+
+        if message.get("role") == "user":
+            logging.info("ist user message -> break")
+            user_message = message.get("content")
+            break
+
+        assistant_messages.insert(0, message.get("content"))
+
+    # Formatierung
+
+    context = f"""
+***DEINE AUFGABE***
+Du hilfst einem KI Assistenten (Gemma3 12B) einen Fehler zu beheben.
+Als Überblick bekommst du:
+ - die Instruktionen, die dieser Assistent bekommen hat
+ - die letzten relevanten Nachrichten
+ - die Fehlermeldung
+
+Erwähne zuerst einmal welcher Fehler aufgetreten ist.
+Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er behoben werden kann.
+
+
+***Instruktionen für den Assistenten***
+
+\"{instructions}\"
+
+
+***Letzte Nachricht des Nutzers***
+
+\"{user_message}\"
+
+
+***Darauffolgende Nachrichten des Assistenten***
+
+\"{"\n---\n".join(assistant_messages)}\"
+
+
+***Die Fehlermeldung***
+
+\"{error_message}\"
+"""
+
+    logging.info(context)
+
+    reasoning_chat = OllamaChat()
+    reasoning_chat.lock = chat.lock
+    reasoning_chat.history.append({"role": "system", "content": context})
+
+    await wait_for_vram(required_gb=11)
+    reasoning = await call_ollama(reasoning_chat, model_name="gpt-oss:20b", think="low", timeout=360)
+
+    reasoning_content = reasoning.message.content
+
+    logging.info(reasoning_content)
+
+    return reasoning_content
 
 
