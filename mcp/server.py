@@ -231,8 +231,7 @@ def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
 
 @mcp.tool(tags={"Lilith", "Peter"})
 def reset_minecraft_speedrun_server(hardcore: bool, version: Annotated[str, "latest, snapshot sowie alle spezifische Minecraft Versionen können hier übergeben werden"] = "latest") -> str:
-    """Löscht den Minecraft Speedrun Server und erstellt einen neuen.
-    MACHE IMMER ERST EINE RÜCKFRAGE OB DU DEN SERVER WIRKLICH LÖSCHEN SOLLST!"""
+    """Löscht den Minecraft Speedrun Server und erstellt einen neuen."""
 
     path = os.getenv("MINECRAFT_SPEEDRUN_PATH")
     url = _get_server_jar_url(version)
