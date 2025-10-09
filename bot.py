@@ -39,9 +39,9 @@ module = importlib.import_module(f"providers.{ai}")
 
 
 
-async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str):
+async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str, use_help_bot: bool = True):
     try:
-        await module.call_ai(history, instructions, queue, channel)
+        await module.call_ai(history, instructions, queue, channel, use_help_bot)
     except Exception as e:
         print(f"FEHLER BEI CALL AI: {e}")
         await queue.put(DiscordMessageReplyTmp(value=f"Ein Fehler ist aufgetreten: {str(e)}", key="error"))
@@ -154,6 +154,7 @@ async def handle_message(message):
                 logging.info(history)
 
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
+                use_help_bot = isinstance(message.channel, discord.TextChannel)
 
                 if not isinstance(message.channel, discord.DMChannel):
 
@@ -182,7 +183,7 @@ Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z
                 logging.info(instructions)
 
                 task1 = asyncio.create_task(listener(queue))
-                task2 = asyncio.create_task(call_ai(history, instructions, queue, channel_name))
+                task2 = asyncio.create_task(call_ai(history, instructions, queue, channel_name, use_help_bot))
 
                 await asyncio.gather(task1, task2)
 

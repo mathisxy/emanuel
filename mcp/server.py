@@ -51,7 +51,7 @@ def roll_dice(sides: int = 6) -> int:
     return result
 
 @mcp.tool(tags={"Emanuel", "Lilith", "Peter"})
-def web_search(query: str, news : Annotated[bool, "Explizit nach aktuellen Nachrichten suchen"] = False, result_count: int = 5) -> List:
+def search_web(query: str, news : Annotated[bool, "Explizit nach aktuellen Nachrichten suchen"] = False, result_count: int = 5) -> List:
     """Für Informationen aus dem Web, z.B. über aktuelle Themen."""
 
     results = searxng.web_search(query, news)

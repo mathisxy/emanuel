@@ -14,7 +14,7 @@ import tiktoken
 from fastmcp import Client
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
-from ollama import AsyncClient, ChatResponse, embed
+from ollama import AsyncClient, ChatResponse
 import logging
 
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
@@ -99,7 +99,7 @@ class OllamaChat:
 ollama_chat: Dict[str, OllamaChat] = {}
 
 
-async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str):
+async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str, use_help_bot: bool = True):
 
     try:
 
@@ -186,7 +186,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                     logging.error(e)
 
-                    if os.getenv("HELP_DISCORD_ID"):
+                    if os.getenv("HELP_DISCORD_ID") and use_help_bot:
                         await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
                         break
 
@@ -229,7 +229,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                             logging.info(f"Tool Call Result bekommen für {name}")
 
-                            if result.content is None:
+                            logging.error(result)
+
+                            if not result.content:
                                 logging.warning("Kein Tool Result Content, manuelle Unterbrechung")
                                 break # Manuelle Unterbrechung
 
@@ -242,9 +244,9 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                         except Exception as e:
                             print(f"TOOL: {name} ERROR: {e}")
-                            logging.error(e)
+                            logging.error("Fehler aufgetreten: %s", e, exc_info=True)
 
-                            if os.getenv("HELP_DISCORD_ID"):
+                            if os.getenv("HELP_DISCORD_ID") and use_help_bot:
                                 await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
                                 break
 
@@ -320,6 +322,8 @@ def extract_custom_tool_calls(text: str) -> List[Dict]:
 
 def process_tool_result(name: str, result: fastmcp.client.client.CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List):
 
+    if not result.content:
+        raise Exception(f"Das Tool Result hat keinen Inhalt.")
     logging.info(result.content[0].type)
 
     if result.content[0].type == "text":
