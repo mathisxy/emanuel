@@ -4,6 +4,7 @@ import importlib
 import io
 import logging
 import re
+from sys import exc_info
 from typing import List, Dict
 
 import discord
@@ -189,6 +190,7 @@ Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z
 
 
             except Exception as e:
+                logging.error(e, exc_info=True)
                 await message.channel.send(str(e))
 
 def _get_member_list(members: List[discord.Member]) -> List[Dict[str, str | int]]:

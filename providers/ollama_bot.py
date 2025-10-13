@@ -184,7 +184,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                 except Exception as e:
 
-                    logging.error(e)
+                    logging.error(e, exc_info=True)
 
                     if os.getenv("HELP_DISCORD_ID") and use_help_bot:
                         await queue.put(DiscordMessageReplyTmp("error", f"<@{os.getenv("HELP_DISCORD_ID")}> Ein Fehler ist aufgetreten: {e}", embed=False))
@@ -292,7 +292,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
     except Exception as e:
         print(f"KEIN TOOLERROR: {e}")
-        logging.error(e)
+        logging.error(e, exc_info=True)
         await queue.put(DiscordMessageReplyTmp(value=str(e), key="error"))
 
 def filter_tool_list(tools: List[Tool]):
@@ -411,7 +411,7 @@ async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature
             return response # ['message']['content']
 
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
             raise Exception(f"Ollama Fehler: {e}")
         
 

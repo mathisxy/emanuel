@@ -95,12 +95,8 @@ class DiscordTemporaryMessagesController:
                         await self.messages[message.key].edit(embed=embed, view=view, attachments=[file])
                     else:
                         await self.messages[message.key].edit(view=view, attachments=[file])
-                    print("EDITED TEMP FILE")
-                    print(self.messages)
                 else:
                     self.messages[message.key] = await self.channel.send(view=view, file=file)
-                    print("ADDED TEMP FILE")
-                    print(self.messages)
             elif isinstance(message, DiscordMessageReplyTmp) or isinstance(message, DiscordMessageProgressTmp):
                 with_embed = (not isinstance(message, DiscordMessageReplyTmp)) or message.embed
 

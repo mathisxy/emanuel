@@ -46,8 +46,7 @@ def roll_dice(sides: int = 6) -> int:
         raise Exception("Ein Würfel muss mindestens zwei Seiten haben")
 
     result = random.randint(1, sides)
-    print("RESULT")
-    print(result)
+    logging.info(f"{result} gewürfelt")
     return result
 
 @mcp.tool(tags={"Emanuel", "Lilith", "Peter"})
@@ -230,7 +229,7 @@ def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
     return extended_version_info["downloads"]["server"]["url"]
 
 @mcp.tool(tags={"Lilith", "Peter"})
-def reset_minecraft_speedrun_server(hardcore: bool, version: Annotated[str, "latest, snapshot sowie alle spezifische Minecraft Versionen können hier übergeben werden"] = "latest") -> str:
+def reset_minecraft_speedrun_server(hardcore: bool, version: Annotated[str, "\"latest\", \"snapshot\" sowie alle spezifische Minecraft Versionen können hier übergeben werden"]) -> str:
     """Löscht den Minecraft Speedrun Server und erstellt einen neuen."""
 
     path = os.getenv("MINECRAFT_SPEEDRUN_PATH")
@@ -392,7 +391,7 @@ async def generate_image(
         with open(f"comfy-ui/{model}.json", "r") as file:
             workflow = json.load(file)
 
-        print(workflow)
+        logging.debug(workflow)
 
         workflow["6"]["inputs"]["text"] = image_generation_prompt
         workflow["3"]["inputs"]["seed"] = seed
@@ -426,7 +425,7 @@ async def edit_image(
         with open(f"comfy-ui/{model}.json", "r") as file:
             workflow = json.load(file)
 
-        print(workflow)
+        logging.debug(workflow)
 
         workflow["6"]["inputs"]["text"] = image_generation_prompt
         workflow["3"]["inputs"]["seed"] = seed
@@ -437,7 +436,6 @@ async def edit_image(
         with open(f"../downloads/{input_image}", "rb") as f:
             image_bytes = f.read()
             upload_image_name = comfy.upload_image(image_bytes)
-            print(upload_image_name)
             workflow["16"]["inputs"]["image"] = upload_image_name
 
 
@@ -476,7 +474,7 @@ async def remove_image_background(
         with open(f"comfy-ui/{model}.json", "r") as file:
             workflow = json.load(file)
 
-        print(workflow)
+        logging.debug(workflow)
 
         # 1. RMBG Node finden
         rmbg_node_id = None
@@ -524,7 +522,6 @@ async def remove_image_background(
         with open(f"../downloads/{image}", "rb") as f:
             image_bytes = f.read()
             upload_image_name = comfy.upload_image(image_bytes)
-            print(upload_image_name)
             load_image_node = workflow[load_image_node_id]
             load_image_node["inputs"]["image"] = upload_image_name
 
@@ -570,7 +567,7 @@ async def _comfyui_generate_image(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     await comfy.close()
 
     if comfyui_image is None:
-        print("Returning None")
+        logging.info("Returning None")
         return None
 
     return Image(
@@ -600,7 +597,7 @@ async def generate_audio(
         with open(f"comfy-ui/{model}.json", "r") as file:
             workflow = json.load(file)
 
-        print(workflow)
+        logging.debug(workflow)
 
         # Node 14 → Tags & Lyrics
         workflow["14"]["inputs"]["tags"] = tags
@@ -616,7 +613,6 @@ async def generate_audio(
         #workflow["52"]["inputs"]["cfg"] = cfg
 
         result = await _comfyui_generate_audio(comfy, ctx, workflow, timeout)
-        print(result is None)
         return result
 
     except FileNotFoundError:
@@ -653,7 +649,7 @@ async def _comfyui_generate_audio(comfy: ComfyUI, ctx: Context, workflow: Dict, 
     await comfy.close()
 
     if comfyui_audio is None:
-        print("Returning None")
+        logging.info("Returning None")
         return None
 
     return Audio(
