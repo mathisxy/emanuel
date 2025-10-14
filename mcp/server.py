@@ -11,6 +11,7 @@ from typing import List, Literal, Dict, Annotated
 import requests
 from dotenv import load_dotenv
 from fastmcp.utilities.types import Image, Audio
+from shapely.speedups import available
 from steam import SteamQuery
 from mcstatus import JavaServer
 from fastmcp import FastMCP, Context
@@ -218,7 +219,21 @@ def _get_server_jar_url(version: Literal["latest", "snapshot"]|str):
     elif version == "snapshot":
         version = manifest["latest"]["snapshot"]
 
-    version_info = next(v for v in manifest["versions"] if v["id"] == version)
+    try:
+        version_info = next(v for v in manifest["versions"] if v["id"] == version)
+    except StopIteration:
+        available_versions = sorted(
+            (v["id"] for v in manifest["versions"]),
+            reverse=True
+        )
+        available_versions_str = "\n - ".join(available_versions)
+        raise Exception(
+            f"{version} ist keine gültige Version. "
+            f"Verfügbare Versionen sind: "
+            f" - latest, "
+            f" - snapshot, "
+            f" - {available_versions_str}"
+        )
 
     logging.info(version_info)
 
@@ -316,7 +331,7 @@ sync-chunk-writes=true
 text-filtering-config=
 text-filtering-version=0
 use-native-transport=true
-view-distance=10
+view-distance=20
 white-list=false
 """
 
