@@ -344,6 +344,74 @@ white-list=false
 
     return "Der Minecraft Speedrun Server wurde resettet"
 
+
+def _get_uuid(name: str) -> str:
+    """Ermittelt die UUID eines Minecraft-Spielers über die Mojang API."""
+    resp = requests.get(f"https://api.mojang.com/users/profiles/minecraft/{name}")
+    if resp.status_code == 200:
+        return resp.json()["id"]
+    raise Exception(f"Konnte UUID für {name} nicht finden.")
+
+def _format_uuid(uuid: str) -> str:
+    """Fügt die Dashes in eine Mojang-UUID ein."""
+    return f"{uuid[0:8]}-{uuid[8:12]}-{uuid[12:16]}-{uuid[16:20]}-{uuid[20:32]}"
+
+@mcp.tool(tags={"Lilith", "Peter"})
+def give_minecraft_speedrun_admin(
+        name: Literal["Perzer", "Mathisxy", "xVaiders", "Schokoboot", "PaddyderBOY", "808Bot"]
+) -> str:
+    """Gibt einem der erlaubten Spieler Adminrechte (OP) auf dem Minecraft Speedrun Server."""
+
+    path = os.getenv("MINECRAFT_SPEEDRUN_PATH")
+    if not path:
+        raise Exception("MINECRAFT_SPEEDRUN_PATH ist nicht gesetzt")
+
+    ops_path = os.path.join(path, "ops.json")
+    logging.info(ops_path)
+
+    # Aktuelle ops.json laden
+    if os.path.exists(ops_path):
+        try:
+            with open(ops_path, "r", encoding="utf-8") as f:
+                current_ops = json.load(f)
+        except json.JSONDecodeError:
+            logging.error("JSON Decode von ops.json fehlgeschlagen. Inhalt wird ignoriert und überschrieben.")
+            current_ops = []
+    else:
+        raise FileNotFoundError("Die Datei ops.json wurde nicht gefunden")
+
+    existing_names = {op.get("name", "") for op in current_ops}
+
+    logging.info(current_ops)
+    logging.info(existing_names)
+
+    if name not in existing_names:
+        uuid = _format_uuid(_get_uuid(name))
+        logging.info(uuid)
+        current_ops.append({
+            "uuid": uuid,
+            "name": name,
+            "level": 4,
+            "bypassesPlayerLimit": True
+        })
+
+        logging.info(current_ops)
+
+        with open(ops_path, "w", encoding="utf-8") as f:
+            logging.info("Writing to ops.json")
+            f.write(json.dumps(current_ops, indent=2, ensure_ascii=False))
+
+        with open(ops_path, "r", encoding="utf-8") as verify:
+            logging.info("Content after write: %s", verify.read())
+
+        subprocess.run(["sudo", "service", "minecraft_speedrun", "restart"], check=True)
+
+        return f"{name} wurde als Admin hinzugefügt."
+    else:
+        return f"{name} ist bereits Admin."
+
+
+
 @mcp.tool(tags={"Lilith", "Peter"})
 def update_enshrouded_server() -> str:
     """Updated den Enshrouded Server"""
