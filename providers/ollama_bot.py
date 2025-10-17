@@ -223,7 +223,8 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
                         try:
 
-                            await queue.put(DiscordMessageReplyTmp(name, f"Das Tool {name} wird aufgerufen: {arguments}"))
+                            formatted_args = "\n".join(f"- **{k}**: {v}" for k, v in arguments.items())
+                            await queue.put(DiscordMessageReplyTmp(name, f"Das Tool {name} wird aufgerufen: {formatted_args}"))
 
                             result = await client.call_tool(name, arguments)
 
