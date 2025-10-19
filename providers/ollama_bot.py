@@ -296,11 +296,15 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
 
 def filter_tool_list(tools: List[Tool]):
 
+    tags_csv = os.getenv("MCP_TOOL_TAGS", "")
+    tags = [tag.strip() for tag in tags_csv.split(",") if tag.strip()]
+    logging.info(tags)
+
     return [
         tool for tool in tools
         if hasattr(tool, 'meta') and tool.meta and
            tool.meta.get('_fastmcp', {}) and
-           os.getenv("NAME") in tool.meta.get('_fastmcp', {}).get('tags', [])
+           any(tag in tool.meta['_fastmcp'].get('tags', []) for tag in tags)
     ]
 
 
