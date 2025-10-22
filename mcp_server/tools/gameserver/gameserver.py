@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import socket
 import subprocess
 from typing import List, Literal, Annotated, Dict
 
@@ -10,13 +9,14 @@ from mcstatus import JavaServer
 from steam import SteamQuery
 
 from mcp_server.mcp_instance import mcp
+from mcp_server.tools.gameserver.ports import server_infos, ServerInfo, minecraft_server_paths
 
 from mcp_server.tools.gameserver.speedrun_server_properties import properties as speedrun_server_properties
 
 
 @mcp.tool(tags={"Gameserver"})
 def control_game_server(
-        servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]],
+        servers: List[Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "minecraft_community", "enshrouded"]],
         operation: Annotated[Literal["status", "start", "stop", "restart"], "Die Operation status gibt Online Status, Serveradresse, Servername und Spieleranzahl zurück. Außerdem sind start, stop und restart der Server möglich"]
 ) -> List[str]:
     """Management der Game-Server"""
@@ -56,7 +56,7 @@ def control_game_server(
 
     return output
 
-def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla", "minecraft_speedrun", "minecraft_drehmal"]) -> Dict:
+def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla", "minecraft_speedrun", "minecraft_drehmal", "minecraft_community"]) -> Dict:
     domain, port = _get_server_address(server)
 
     if server == "enshrouded":
@@ -79,26 +79,19 @@ def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla",
         }
 
 
-def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "enshrouded"]) -> (str, int):
-    domain = "mathis.party"
-    if server == "enshrouded":
-        domain = socket.gethostbyname(domain)
-        port = 15637
-    elif server == "minecraft_vanilla":
-        port = 25567
-    elif server == "minecraft_drehmal":
-        port = 25566
-    elif server == "minecraft_speedrun":
-        port = 25565
-    else:
-        raise Exception("Unbekannter Server")
+def _get_server_address(server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "minecraft_community", "enshrouded"]) -> (str, int):
 
-    return domain, port
+    if not server in server_infos:
+        raise Exception(f"Server Infos für {server} nicht gefunden.")
+
+    server_info: ServerInfo = server_infos[server]
+
+    return server_info.domain, server_info.port
 
 
 @mcp.tool(tags={"Gameserver"})
 def set_minecraft_server_property(
-        server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun"],
+        server: Literal["minecraft_vanilla", "minecraft_drehmal", "minecraft_speedrun", "minecraft_community"],
         server_property: str,
         value: str,
         check_if_property_exists: bool = True,
@@ -106,16 +99,11 @@ def set_minecraft_server_property(
     """Ändert die server.properties Datei des angegebenen Minecraft Servers.
     Damit die Änderungen wirksam werden muss dieser Server neu gestartet werden."""
 
-    server_paths = {
-        "minecraft_vanilla": "/mnt/samsung/fabric",
-        "minecraft_drehmal": "/mnt/samsung/drehmal",
-        "minecraft_speedrun": "/mnt/samsung/speedrun",
-    }
 
-    if server not in server_paths:
+    if server not in minecraft_server_paths:
         raise Exception(f"Unbekannter Server: {server}")
 
-    path = server_paths[server]
+    path = minecraft_server_paths[server]
 
     _set_minecraft_server_property(path, server_property, value, check_if_property_exists)
 
