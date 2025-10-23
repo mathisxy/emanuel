@@ -30,8 +30,12 @@ def control_game_server(
     for server in servers:
         if operation == "status":
 
+            args = ['systemctl', 'is-active', server]
+
+            logging.info(" ".join(args))
+
             result = subprocess.run(
-                ['systemctl', 'is-active', server],
+                args,
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -42,8 +46,13 @@ def control_game_server(
                 output.append(f"{server} ist offline")
 
         else:
+
+            args = ['sudo', 'service', server, operation]
+
+            logging.info(" ".join(args))
+
             result = subprocess.run(
-                ['sudo', 'service', server, operation],
+                args,
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -54,10 +63,14 @@ def control_game_server(
             else:
                 output.append(f"{server} {operation} fehlgeschlagen: {result.stderr.strip()}")
 
+    logging.info(output)
+
     return output
 
 def _get_extended_server_info(server: Literal["enshrouded", "minecraft_vanilla", "minecraft_speedrun", "minecraft_drehmal", "minecraft_community"]) -> Dict:
     domain, port = _get_server_address(server)
+
+    logging.info(f"{domain}:{port}")
 
     if server == "enshrouded":
         server_obj = SteamQuery(domain, port)
