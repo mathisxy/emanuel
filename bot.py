@@ -1,33 +1,25 @@
 import asyncio
-import csv
 import importlib
 import io
 import logging
-import re
 from typing import List, Dict
 
 import discord
 import pytz
-from discord import Status
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
 
+from core.config import Config
+from core.message_handler import clean_reply, get_member_list
+from core.logging_config import setup_logging
 from discord_buttons import ProgressButton
 from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
     DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 
-logging.basicConfig(filename="bot.log", level=logging.INFO)
-if os.getenv("DEBUG", "false").lower() == "true":
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.debug(" --- LOGING IS SET TO DEBUG --- ")
 load_dotenv()
 
-api_key = os.getenv("API_KEY")
-model = os.getenv("MODEL")
-discord_token = os.getenv("DISCORD_TOKEN")
-mcp_server_url = os.getenv("MCP_SERVER_URL")
-ai=os.getenv("AI", "mistral")
+setup_logging()
 
 intents = discord.Intents.default()
 intents.message_content = True  # Für Textnachrichten lesen
@@ -38,7 +30,7 @@ intents.presences = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-module = importlib.import_module(f"providers.{ai}")
+module = importlib.import_module(f"providers.{Config.AI}")
 
 
 
@@ -46,7 +38,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
     try:
         await module.call_ai(history, instructions, queue, channel, use_help_bot)
     except Exception as e:
-        print(f"FEHLER BEI CALL AI: {e}")
+        logging.exception(f"FEHLER BEI CALL AI: {e}")
         await queue.put(DiscordMessageReplyTmp(value=f"Ein Fehler ist aufgetreten: {str(e)}", key="error"))
     finally:
         await queue.put(None)
@@ -90,7 +82,7 @@ async def handle_message(message):
                                 await message.channel.send(file=file)
 
                             elif isinstance(event, DiscordMessageReply):
-                                reply = _clean_reply(event.value)
+                                reply = clean_reply(event.value)
                                 if not reply:
                                     return
                                 if len(reply) > 2000:
@@ -107,13 +99,12 @@ async def handle_message(message):
 
 
                 history = []
-                max_count = int(os.getenv("MAX_MESSAGE_COUNT", 3))
-                async for msg in message.channel.history(limit=20, oldest_first=False):
+                async for msg in message.channel.history(limit=Config.TOTAL_MESSAGE_SEARCH_COUNT, oldest_first=False):
 
                     if msg.content == os.getenv("HISTORY_RESET_TEXT"):
                         break
 
-                    if len(history) >= max_count:
+                    if len(history) >= Config.MAX_MESSAGE_COUNT:
                         break
 
                     #if msg.author != bot.user: #and not is_relevant_message(msg):
@@ -162,7 +153,7 @@ async def handle_message(message):
 
                 if not isinstance(message.channel, discord.DMChannel):
 
-                    member_list = _get_member_list(message.channel.members)
+                    member_list = get_member_list(message.channel.members)
                     member_list = "\n".join([f" - {m}" for m in member_list])
 
                     logging.info(member_list)
@@ -179,10 +170,10 @@ Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z
                 else:
                     instructions = f"Du bist im DM Chat mit {message.author.display_name}.\n"
 
-                instructions += os.getenv("INSTRUCTIONS")
+                instructions += Config.INSTRUCTIONS
 
-                instructions = instructions.replace("[#NAME]", os.getenv("NAME"))
-                instructions = instructions.replace("[#DISCORD_ID]", os.getenv("DISCORD_ID"))
+                instructions = instructions.replace("[#NAME]", Config.NAME)
+                instructions = instructions.replace("[#DISCORD_ID]", Config.DISCORD_ID)
 
                 logging.info(instructions)
 
@@ -196,34 +187,13 @@ Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z
                 logging.error(e, exc_info=True)
                 await message.channel.send(str(e))
 
-def _get_member_list(members: List[discord.Member]) -> List[Dict[str, str | int]]:
-
-    member_dict = {m.id: {"Discord": m.display_name, "Discord ID": m.id} for m in members if m.status in [Status.online, Status.idle]}
-    extra_dict = {}
-    if os.getenv("USERNAMES_PATH") and os.path.exists(os.getenv("USERNAMES_PATH")):
-        with open(os.getenv("USERNAMES_PATH"), 'r', encoding='utf-8') as datei:
-            csv_reader = csv.DictReader(datei)
-            extra_dict = {int(row["Discord ID"]): {**row, "Discord ID": int(row["Discord ID"])} for row in csv_reader}
-
-    return [
-        { **extra_dict.get(key, {}), **member_dict.get(key, {}) }
-        for key in (member_dict.keys() | extra_dict.keys())
-    ]
-
-def _clean_reply(reply: str) -> str:
-
-    pattern = r'(<start_of_image>|\<#.*?>)'
-    reply = re.sub(pattern, '', reply)
-    logging.info(f"REPLY: {reply}")
-    return reply.strip()
-
 
 @bot.event
 async def on_message(message: discord.Message):
     try:
         await handle_message(message)
     except Exception as e:
-        print(e)
+        logging.exception(e)
         await message.reply(f"Fehler: {e}")
 
 
@@ -236,12 +206,5 @@ async def on_ready():
     print("✅ Slash-Commands synchronisiert")
 
 
-@bot.event
-async def on_shutdown():
-    for task in asyncio.all_tasks():
-        logging.debug("Task läuft noch, wird gecancelt wegen shutdown")
-        logging.debug(task.get_stack())
-        task.cancel()
 
-
-bot.run(discord_token)
+bot.run(Config.DISCORD_TOKEN)
