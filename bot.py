@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import os
 
 from core.config import Config
-from core.message_handler import clean_reply, get_member_list
+from core.message_handling import clean_reply, get_member_list
 from core.logging_config import setup_logging
 from discord_buttons import ProgressButton
 from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \

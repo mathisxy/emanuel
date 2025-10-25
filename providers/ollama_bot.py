@@ -17,8 +17,10 @@ from mcp import Tool
 from ollama import AsyncClient, ChatResponse
 import logging
 
+from core.config import Config
 from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageFile, \
     DiscordMessageReplyTmp, DiscordMessageProgressTmp, DiscordMessageFileTmp, DiscordMessageRemoveTmp
+from providers.ollama_core.response_filtering import filter_response
 
 from providers.ollama_tool_calls import mcp_to_dict_tools, get_custom_tools_system_prompt, get_tools_system_prompt
 
@@ -169,7 +171,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
                 if response.message.content:
 
                     chat.history.append({"role": "assistant", "content": response.message.content})
-                    await queue.put(DiscordMessageReply(response.message.content))
+                    await queue.put(DiscordMessageReply(filter_response(response.message.content, Config.MODEL)))
 
                 if deny_tools:
                     break
@@ -382,8 +384,8 @@ async def wait_for_vram(required_gb:float=8, timeout:float=20, interval:float=1)
 
 async def call_ollama(chat: OllamaChat, model_name: str|None = None, temperature: str|None = None, think:bool|Literal["low", "medium", "high"]|None = None, tools: List[Dict]|None = None,  keep_alive: str|None = None, timeout: float|None = None) -> ChatResponse:
 
-    model_name = model_name if model_name else os.getenv("GEMMA3_MODEL", "gemma3n:e4b")
-    temperature = temperature if temperature else float(os.getenv("GEMMA3_MODEL_TEMPERATURE", 0.7))
+    model_name = model_name if model_name else Config.OLLAMA_MODEL
+    temperature = temperature if temperature else Config.OLLAMA_MODEL_TEMPERATURE
     think = think if think else os.getenv("THINK", None)
     keep_alive = keep_alive if keep_alive else os.getenv("OLLAMA_KEEP_ALIVE", "10m")
     timeout = timeout if timeout else os.getenv("OLLAMA_TIMEOUT", None)

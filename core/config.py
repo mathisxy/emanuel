@@ -7,11 +7,13 @@ class Config:
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN")
     API_KEY: str = os.getenv("API_KEY")
-    MODEL: str = os.getenv("MODEL")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma3:4b")
+    OLLAMA_MODEL_TEMPERATURE: float = float(os.getenv("OLLAMA_MODEL_TEMPERATURE", 1))
+    OLLAMA_THINK: bool|str = os.getenv("OLLAMA_THINKING_EFFORT") if os.getenv("OLLAMA_THINKING_EFFORT") else os.getenv("OLLAMA_THINKING_ENABLED", "").lower() == "true"
     AI: str = os.getenv("AI", "mistral")
     MCP_SERVER_URL: str = os.getenv("MCP_SERVER_URL")
     MAX_MESSAGE_COUNT: int = int(os.getenv("MAX_MESSAGE_COUNT", 3))
-    TOTAL_MESSAGE_SEARCH_COUNT: int = int(os.getenv("TOTAL_MESSAGE_SEARCH_COUNT"), 20)
+    TOTAL_MESSAGE_SEARCH_COUNT: int = int(os.getenv("TOTAL_MESSAGE_SEARCH_COUNT", 20))
     INSTRUCTIONS: str = os.getenv("INSTRUCTIONS", "")
     NAME: str = os.getenv("NAME", "Bot")
     DISCORD_ID: str = os.getenv("DISCORD_ID")
