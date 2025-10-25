@@ -4,7 +4,6 @@ import importlib
 import io
 import logging
 import re
-from sys import exc_info
 from typing import List, Dict
 
 import discord
@@ -19,6 +18,9 @@ from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageRe
     DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 
 logging.basicConfig(filename="bot.log", level=logging.INFO)
+if os.getenv("DEBUG", "false").lower() == "true":
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.debug(" --- LOGING IS SET TO DEBUG --- ")
 load_dotenv()
 
 api_key = os.getenv("API_KEY")
@@ -118,7 +120,8 @@ async def handle_message(message):
                         #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
-                    content = msg.content if msg.author == bot.user else f"<#Nachricht von <@{msg.author.id}> um {msg.created_at.astimezone(pytz.timezone('Europe/Berlin')).strftime("%H:%M:%S")}> {msg.content}"
+                    timestamp = msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")
+                    content = msg.content if msg.author == bot.user else f"<#Nachricht von <@{msg.author.id}> um {timestamp}> {msg.content}"
                     images = []
 
                     if msg.attachments:
@@ -169,7 +172,7 @@ async def handle_message(message):
 Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
 {member_list}
                     
-Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789>).
+Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789123456789>).
                     
 """
 
@@ -231,6 +234,14 @@ async def on_ready():
     await bot.load_extension("cogs.commands")
     await bot.tree.sync()
     print("✅ Slash-Commands synchronisiert")
+
+
+@bot.event
+async def on_shutdown():
+    for task in asyncio.all_tasks():
+        logging.debug("Task läuft noch, wird gecancelt wegen shutdown")
+        logging.debug(task.get_stack())
+        task.cancel()
 
 
 bot.run(discord_token)

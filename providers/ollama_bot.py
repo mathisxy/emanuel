@@ -480,7 +480,7 @@ Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er
     reasoning_chat.history.append({"role": "system", "content": context})
 
     await wait_for_vram(required_gb=11)
-    reasoning = await call_ollama(reasoning_chat, model_name="gemma3:12b", timeout=360)
+    reasoning = await call_ollama(reasoning_chat, model_name=os.getenv("GEMMA3_MODEL"), timeout=360)
 
     reasoning_content = reasoning.message.content
 
