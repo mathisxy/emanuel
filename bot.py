@@ -16,6 +16,8 @@ from core.logging_config import setup_logging
 from discord_buttons import ProgressButton
 from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
     DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
+from providers.mistral import MistralLLM
+from providers.ollama import OllamaLLM
 
 load_dotenv()
 
@@ -30,13 +32,19 @@ intents.presences = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-module = importlib.import_module(f"providers.{Config.AI}")
-
+#module = importlib.import_module(f"providers.{Config.AI}")
+match Config.AI:
+    case "ollama":
+        pass
+        llm = OllamaLLM()
+    case "mistral":
+        pass
+        llm = MistralLLM()
 
 
 async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage|None], channel: str, use_help_bot: bool = True):
     try:
-        await module.call_ai(history, instructions, queue, channel, use_help_bot)
+        await llm.call(history, instructions, queue, channel, use_help_bot)
     except Exception as e:
         logging.exception(f"FEHLER BEI CALL AI: {e}")
         await queue.put(DiscordMessageReplyTmp(value=f"Ein Fehler ist aufgetreten: {str(e)}", key="error"))
@@ -199,11 +207,11 @@ async def on_message(message: discord.Message):
 
 @bot.event
 async def on_ready():
-    print(f"🤖 Bot online als {bot.user}!")
+    logging.info(f"🤖 Bot online als {bot.user}!")
     # Alle Cogs laden
     await bot.load_extension("cogs.commands")
     await bot.tree.sync()
-    print("✅ Slash-Commands synchronisiert")
+    logging.info("✅ Slash-Commands synchronisiert")
 
 
 
