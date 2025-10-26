@@ -5,6 +5,9 @@ from enum import Enum
 import discord
 from fastmcp import Client
 
+from core.config import Config
+
+
 class BotActions(str, Enum):
     INTERRUPT = "interrupt_image_generation"
     UNLOAD_COMFY = "unload_comfy_models"
@@ -38,8 +41,8 @@ class BotAction:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
                 case BotActions.RESET:
-                    await interaction.channel.send(os.getenv("HISTORY_RESET_TEXT"))
-                    return f"✅ {os.getenv("NAME")} hat alles vergessen"
+                    await interaction.channel.send(Config.HISTORY_RESET_TEXT)
+                    return f"✅ {Config.NAME} hat alles vergessen"
 
                 # case EmanuelActions.RESTART:
                 #     result = subprocess.run(

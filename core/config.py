@@ -74,5 +74,6 @@ class Config:
     USERNAMES_CSV_FILE_PATH: str|None = os.getenv("USERNAMES_PATH")
     HELP_DISCORD_ID: str|None = os.getenv("HELP_DISCORD_ID")
     MCP_TOOL_TAGS: List[str] = extract_mcp_tool_tags(os.getenv("MCP_TOOL_TAGS"))
+    HISTORY_RESET_TEXT: str = os.getenv("HISTORY_RESET_TEXT", " --- ")
 
 

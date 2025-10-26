@@ -35,7 +35,6 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
             image_bytes = base64.b64decode(image_base64)
             await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", key="progress"))
         else:
-            logging.debug(f"EVENT: {message.data}")
             await queue.put(DiscordMessageReplyTmp(value=str(message.data.get("msg")), key=message.level.lower()))
     async def progress_handler(progress: float, total: float|None, message: str|None):
         logging.debug(f"PROGRESS: {progress}/{total}:{message}")
