@@ -1,7 +1,7 @@
 import discord
 from discord.ui import View, Button
 
-from actions import BotAction, BotActions
+from core.discord_actions import BotAction, BotActions
 
 
 class ProgressButton(View):

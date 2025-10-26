@@ -5,10 +5,11 @@ from typing import List, Dict, Literal
 import tiktoken
 
 from core.config import Config
-from discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageReplyTmp
+from core.discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageReplyTmp
 from providers.base import BaseLLM, LLMResponse, LLMToolCall
 from providers.utils.chat import LLMChat
 from providers.utils.mcp_client_integration import generate_with_mcp
+from providers.utils.vram import wait_for_vram
 
 
 class OllamaLLM(BaseLLM):
@@ -40,6 +41,8 @@ class OllamaLLM(BaseLLM):
 
     @staticmethod
     async def generate(chat: LLMChat, model_name: str | None = None, temperature: str | None = None, think: bool | Literal["low", "medium", "high"] | None = None, keep_alive: str | float | None = None, timeout: float | None = None, tools: List[Dict] | None = None) -> LLMResponse:
+
+        await wait_for_vram(required_gb=11)
 
         model_name = model_name if model_name else Config.OLLAMA_MODEL
         temperature = temperature if temperature else Config.OLLAMA_MODEL_TEMPERATURE

@@ -6,24 +6,21 @@ import mimetypes
 import os
 import re
 import secrets
-from datetime import datetime
-from typing import List, Dict
+from typing import List
 
-from attr import dataclass
 from fastmcp import Client
 from fastmcp.client.client import CallToolResult
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
 
 from core.config import Config
-from discord_message import DiscordMessage, DiscordMessageFileTmp, DiscordMessageReplyTmp, DiscordMessageProgressTmp, \
+from core.discord_message import DiscordMessage, DiscordMessageFileTmp, DiscordMessageReplyTmp, DiscordMessageProgressTmp, \
     DiscordMessageRemoveTmp, DiscordMessageFile, DiscordMessageReply
 from providers.base import BaseLLM, LLMToolCall
 from providers.utils.chat import LLMChat
 from providers.utils.ollama_error_reasoning import error_reasoning
 from providers.utils.response_filtering import filter_response
 from providers.utils.tool_calls import mcp_to_dict_tools, get_custom_tools_system_prompt, get_tools_system_prompt
-from providers.utils.vram import wait_for_vram
 
 
 async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[DiscordMessage | None], use_help_bot: bool = False):
@@ -65,8 +62,6 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
             logging.info(f"Tool Call Errors: {tool_call_errors}")
 
-            await wait_for_vram(required_gb=11)
-
             deny_tools = Config.DENY_RECURSIVE_TOOL_CALLING and not tool_call_errors and i > 0
 
             use_integrated_tools = Config.TOOL_INTEGRATION and not deny_tools
@@ -101,7 +96,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
                 try:
                     await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
-                    reasoning = await error_reasoning(str(e), chat)
+                    reasoning = await error_reasoning(str(e), llm, chat)
 
                 except Exception as f:
                     logging.error(f)
@@ -159,7 +154,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
                         try:
                             await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
-                            reasoning = await error_reasoning(str(e), chat)
+                            reasoning = await error_reasoning(str(e), llm, chat)
 
                         except Exception:
                             await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))

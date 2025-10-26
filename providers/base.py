@@ -1,9 +1,9 @@
 import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Dict, Literal, Any
+from typing import List, Dict
 
-from discord_message import DiscordMessage
+from core.discord_message import DiscordMessage
 from providers.utils.chat import LLMChat
 
 

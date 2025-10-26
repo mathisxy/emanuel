@@ -13,8 +13,8 @@ import os
 from core.config import Config
 from core.message_handling import clean_reply, get_member_list
 from core.logging_config import setup_logging
-from discord_buttons import ProgressButton
-from discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
+from core.discord_buttons import ProgressButton
+from core.discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
     DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 from providers.mistral import MistralLLM
 from providers.ollama import OllamaLLM

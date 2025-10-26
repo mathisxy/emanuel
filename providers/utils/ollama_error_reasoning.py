@@ -1,11 +1,12 @@
 import logging
 
+from providers.base import BaseLLM
 from providers.utils.chat import LLMChat
-from providers.utils.vram import wait_for_vram
 
 
 async def error_reasoning(
         error_message: str,
+        llm: BaseLLM,
         chat: LLMChat,
 ):
 
@@ -64,10 +65,9 @@ Erkläre dann klar und möglichst knapp wie der Fehler entstanden ist und wie er
     reasoning_chat.lock = chat.lock
     reasoning_chat.history.append({"role": "system", "content": context})
 
-    await wait_for_vram(required_gb=11)
-    reasoning = await call_ollama(reasoning_chat)
+    reasoning = await llm.generate(reasoning_chat)
 
-    reasoning_content = reasoning.message.content
+    reasoning_content = reasoning.text
 
     logging.info(reasoning_content)
 
