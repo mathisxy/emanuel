@@ -1,6 +1,6 @@
 import os
 import traceback
-from enum import Enum
+from enum import StrEnum
 
 import discord
 from fastmcp import Client
@@ -8,7 +8,7 @@ from fastmcp import Client
 from core.config import Config
 
 
-class BotActions(str, Enum):
+class BotActions(StrEnum):
     INTERRUPT = "interrupt_image_generation"
     UNLOAD_COMFY = "unload_comfy_models"
     RESET = "reset"

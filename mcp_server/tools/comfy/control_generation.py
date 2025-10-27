@@ -1,7 +1,7 @@
 import asyncio
 
 from mcp_server.mcp_instance import mcp
-from comfy_ui import ComfyUI
+from mcp_server.tools.comfy.comfy_ui import ComfyUI
 
 
 @mcp.tool(tags={"Comfy Control"})

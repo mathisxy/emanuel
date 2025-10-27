@@ -31,12 +31,12 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
             image_base64 = message.data.get("extra").get("base64")
             image_type = message.data.get("extra").get("type")
             image_bytes = base64.b64decode(image_base64)
-            await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}"))
+            await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", cancelable=True))
         else:
             await queue.put(DiscordMessageReplyTmp(value=str(message.data.get("msg")), key=message.level.lower()))
     async def progress_handler(progress: float, total: float|None, message: str|None):
         logging.debug(f"Progress: {progress}/{total}:{message}")
-        await queue.put(DiscordMessageProgressTmp(progress=progress, total=total))
+        await queue.put(DiscordMessageProgressTmp(progress=progress, total=total, cancelable=True))
 
     if not Config.MCP_SERVER_URL:
         raise Exception("Kein MCP Server URL verfügbar")

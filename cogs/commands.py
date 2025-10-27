@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from actions import BotAction, BotActions
+from core.discord_actions import BotActions, BotAction
 
 
 class CommandsCog(commands.Cog):

@@ -79,7 +79,7 @@ async def handle_message(message):
                             if isinstance(event, DiscordMessageTmpMixin):
 
                                 view = None
-                                if isinstance(event, DiscordMessageProgressTmp) and event.cancelable:
+                                if event.cancelable:
                                     view = ProgressButton()
 
                                 await tmp_controller.set_message(event, view)

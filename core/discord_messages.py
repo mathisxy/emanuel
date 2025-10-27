@@ -25,11 +25,13 @@ class DiscordMessageFile(DiscordMessage):
 @dataclass(kw_only=True)
 class DiscordMessageTmpMixin:
     key: str
+    cancelable: bool = False
 
 @runtime_checkable
 class DiscordMessageTmpProtocol(Protocol):
     key: str
     value: any
+    cancelable: bool = False
 
 @dataclass(kw_only=True)
 class DiscordMessageReplyTmp(DiscordMessageReply, DiscordMessageTmpMixin):
@@ -46,7 +48,6 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
     length: int = 20
     filled_char: str = '█'
     empty_char: str = '░'
-    cancelable: bool = False
     key: str = "progress"
     value: str = field(init=False)
 
@@ -95,6 +96,7 @@ class DiscordTemporaryMessagesController:
         async with self._lock:
 
             if isinstance(message, DiscordMessageFileTmp):
+                logging.debug(view)
                 file = discord.File(io.BytesIO(message.value), filename=message.filename)
                 if message.key in self.messages:
                     _, discord_msg = self.messages[message.key]

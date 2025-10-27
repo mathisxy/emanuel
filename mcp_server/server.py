@@ -4,7 +4,7 @@ import logging
 
 from dotenv import load_dotenv
 
-from mcp_server.tools import audio, image, gameserver, web, default
+from mcp_server.tools import audio, image, control_generation, gameserver, web, default
 
 logging.basicConfig(filename="server.log", level=logging.INFO)
 
