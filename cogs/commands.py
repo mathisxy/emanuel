@@ -30,7 +30,7 @@ class CommandsCog(commands.Cog):
             emanuel_action = BotActions(action.value)
             await interaction.response.send_message(await BotAction.execute(emanuel_action, interaction), ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Ausnahmefehler: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Fehler: {str(e)}", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
