@@ -3,26 +3,26 @@ import io
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, runtime_checkable, Protocol
+from typing import Dict, runtime_checkable, Protocol, Tuple
 
 import discord
 from discord import Message, TextChannel
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessage:
     value: any
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessageReply(DiscordMessage):
     value: str
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessageFile(DiscordMessage):
     value: bytes
     filename: str
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessageTmpMixin:
     key: str
 
@@ -31,21 +31,23 @@ class DiscordMessageTmpProtocol(Protocol):
     key: str
     value: any
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessageReplyTmp(DiscordMessageReply, DiscordMessageTmpMixin):
     embed: bool = True
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessageFileTmp(DiscordMessageFile, DiscordMessageTmpMixin):
-    pass
+    key: str = "progress"
 
-@dataclass
+@dataclass(kw_only=True)
 class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
     progress: float
     total: float
     length: int = 20
     filled_char: str = '█'
     empty_char: str = '░'
+    cancelable: bool = False
+    key: str = "progress"
     value: str = field(init=False)
 
     def __post_init__(self):
@@ -54,7 +56,12 @@ class DiscordMessageProgressTmp(DiscordMessage, DiscordMessageTmpMixin):
         bar = self.filled_char * filled_length + self.empty_char * (self.length - filled_length)
         self.value = f"[{bar}] {int(percent * 100)}% ({int(self.progress)}/{int(self.total)})"
 
-@dataclass
+@dataclass(kw_only=True)
+class DiscordMessageReplyTmpError(DiscordMessageReplyTmp):
+    deletion_delay = None
+    key: str = "error"
+
+@dataclass(kw_only=True)
 class DiscordMessageRemoveTmp(DiscordMessage, DiscordMessageTmpMixin):
     value: None = field(init=False)
     pass
@@ -66,7 +73,7 @@ class DiscordTemporaryMessagesController:
     def __init__(self, channel: TextChannel, error_deletion_delay:float=10, min_update_interval:float=1):
         self.channel = channel
         self._lock = asyncio.Lock()
-        self.messages: Dict[str, Message] = {}
+        self.messages: Dict[str, Tuple[DiscordMessageTmpProtocol, Message]] = {}
         self.error_deletion_delay = error_deletion_delay
         self.min_update_interval = min_update_interval
         self._last_update: Dict[str, float] = {}
@@ -84,19 +91,23 @@ class DiscordTemporaryMessagesController:
                 return
             self._last_update[message.key] = now
 
+
         async with self._lock:
+
             if isinstance(message, DiscordMessageFileTmp):
                 file = discord.File(io.BytesIO(message.value), filename=message.filename)
-                if message.key in self.messages.keys():
-                    embeds = self.messages[message.key].embeds
+                if message.key in self.messages:
+                    _, discord_msg = self.messages[message.key]
+                    embeds = discord_msg.embeds
                     if embeds:
                         embed = embeds[0]
                         embed.set_image(url=f"attachment://{message.filename}")
-                        await self.messages[message.key].edit(embed=embed, view=view, attachments=[file])
+                        await discord_msg.edit(embed=embed, view=view, attachments=[file])
                     else:
-                        await self.messages[message.key].edit(view=view, attachments=[file])
+                        await discord_msg.edit(view=view, attachments=[file])
+                    self.messages[message.key] = (message, discord_msg)
                 else:
-                    self.messages[message.key] = await self.channel.send(view=view, file=file)
+                    self.messages[message.key] = (message, await self.channel.send(view=view, file=file))
             elif isinstance(message, DiscordMessageReplyTmp) or isinstance(message, DiscordMessageProgressTmp):
                 with_embed = (not isinstance(message, DiscordMessageReplyTmp)) or message.embed
 
@@ -105,39 +116,47 @@ class DiscordTemporaryMessagesController:
                     color=discord.Color.dark_gray()
                 ) if with_embed else None
 
-                existing_msg = self.messages.get(message.key)
-
-                if existing_msg:
-                    if embed and existing_msg.embeds:
-                        embed = existing_msg.embeds[0]
+                if message.key in self.messages:
+                    _, discord_msg = self.messages[message.key]
+                    if embed and discord_msg.embeds:
+                        embed = discord_msg.embeds[0]
                         embed.description = message.value
 
-                    await self.messages[message.key].edit(view=view, embed=embed, content=None if embed else message.value)
+                    await discord_msg.edit(view=view, embed=embed, content=None if embed else message.value)
+                    self.messages[message.key] = (message, discord_msg)
 
                 else:
-                    self.messages[message.key] = await self.channel.send(view=view, embed=embed, content=None if embed else message.value)
-
+                    self.messages[message.key] = (message, await self.channel.send(view=view, embed=embed, content=None if embed else message.value))
             elif isinstance(message, DiscordMessageRemoveTmp):
                 msg = self.messages.pop(message.key, None)
                 if msg:
-                    await msg.delete()
-
+                    _, discord_msg = msg
+                    await discord_msg.delete()
             else:
                 logging.error(f"Ungültiger Temp Message Typ: {message}")
 
+
     async def __aenter__(self):
-        # Init-Logik hier, wenn nötig
-        print("Controller gestartet")
+        logging.debug("Discord Controller gestartet")
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         async with self._lock:
-            print("DELETING TEMP MESSAGES")
-            print(self.messages)
-            for key, message in self.messages.items():
-                if key == "error":
-                    await asyncio.sleep(self.error_deletion_delay)
+            logging.debug("Temporäre Discord Nachrichten werden gelöscht")
+            logging.debug(self.messages)
 
-                await message.delete()
+            tasks = []
+
+            for key, message in self.messages.items():
+                protocol_msg, discord_msg = message
+                if isinstance(protocol_msg, DiscordMessageReplyTmpError):
+                    async def delete_with_delay(protocol_msg: DiscordMessageReplyTmpError, discord_msg: Message):
+                        await asyncio.sleep(protocol_msg.deletion_delay if protocol_msg.deletion_delay else self.error_deletion_delay)
+                        await discord_msg.delete()
+                    tasks.append(delete_with_delay(protocol_msg, discord_msg))
+                else:
+                    await discord_msg.delete()
+
+            await asyncio.gather(*tasks)
 
         self.messages = {}

@@ -14,11 +14,12 @@ from fastmcp.client.logging import LogMessage
 from mcp import Tool
 
 from core.config import Config
-from core.discord_message import DiscordMessage, DiscordMessageFileTmp, DiscordMessageReplyTmp, DiscordMessageProgressTmp, \
-    DiscordMessageRemoveTmp, DiscordMessageFile, DiscordMessageReply
+from core.discord_messages import DiscordMessage, DiscordMessageFileTmp, DiscordMessageReplyTmp, \
+    DiscordMessageProgressTmp, \
+    DiscordMessageRemoveTmp, DiscordMessageFile, DiscordMessageReply, DiscordMessageReplyTmpError
 from providers.base import BaseLLM, LLMToolCall
 from providers.utils.chat import LLMChat
-from providers.utils.ollama_error_reasoning import error_reasoning
+from providers.utils.error_reasoning import error_reasoning
 from providers.utils.response_filtering import filter_response
 from providers.utils.tool_calls import mcp_to_dict_tools, get_custom_tools_system_prompt, get_tools_system_prompt
 
@@ -30,12 +31,12 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
             image_base64 = message.data.get("extra").get("base64")
             image_type = message.data.get("extra").get("type")
             image_bytes = base64.b64decode(image_base64)
-            await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", key="progress"))
+            await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}"))
         else:
             await queue.put(DiscordMessageReplyTmp(value=str(message.data.get("msg")), key=message.level.lower()))
     async def progress_handler(progress: float, total: float|None, message: str|None):
-        logging.debug(f"PROGRESS: {progress}/{total}:{message}")
-        await queue.put(DiscordMessageProgressTmp(progress=progress, total=total, key="progress"))
+        logging.debug(f"Progress: {progress}/{total}:{message}")
+        await queue.put(DiscordMessageProgressTmp(progress=progress, total=total))
 
     if not Config.MCP_SERVER_URL:
         raise Exception("Kein MCP Server URL verfügbar")
@@ -58,6 +59,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
         tool_call_errors = False
 
+
         for i in range(Config.MAX_TOOL_CALLS):
 
             logging.info(f"Tool Call Errors: {tool_call_errors}")
@@ -73,7 +75,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
             if response.text:
 
                 chat.history.append({"role": "assistant", "content": response.text})
-                await queue.put(DiscordMessageReply(filter_response(response.text, Config.OLLAMA_MODEL)))
+                await queue.put(DiscordMessageReply(value=filter_response(response.text, Config.OLLAMA_MODEL)))
 
             if deny_tools:
                 break
@@ -88,14 +90,20 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
             except Exception as e:
 
-                logging.error(e, exc_info=True)
+                logging.exception(e, exc_info=True)
 
                 if Config.HELP_DISCORD_ID and use_help_bot:
-                    await queue.put(DiscordMessageReplyTmp("error", f"<@{Config.HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}", embed=False))
+                    await queue.put(DiscordMessageReplyTmpError(
+                        value=f"<@{Config.HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}",
+                        embed=False
+                    ))
                     break
 
                 try:
-                    await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
+                    await queue.put(DiscordMessageReplyTmp(
+                        key="reasoning",
+                        value="Aufgetretener Fehler wird analysiert..."
+                    ))
                     reasoning = await error_reasoning(str(e), llm, chat)
 
                 except Exception as f:
@@ -128,7 +136,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                     try:
 
                         formatted_args = "\n".join(f" - **{k}:** {v}" for k, v in arguments.items())
-                        await queue.put(DiscordMessageReplyTmp(name, f"Das Tool {name} wird aufgerufen:\n{formatted_args}"))
+                        await queue.put(DiscordMessageReplyTmp(key=name, value=f"Das Tool {name} wird aufgerufen:\n{formatted_args}"))
 
                         result = await client.call_tool(name, arguments)
 
@@ -146,18 +154,21 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                             process_tool_result(name, result, tool_results, tool_image_results, tool_file_results)
 
                     except Exception as e:
-                        logging.exception("Fehler aufgetreten: %s", e, exc_info=True)
+                        logging.exception(e, exc_info=True)
 
                         if Config.HELP_DISCORD_ID and use_help_bot:
-                            await queue.put(DiscordMessageReplyTmp("error", f"<@{Config.HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}", embed=False))
+                            await queue.put(DiscordMessageReplyTmpError(
+                                value=f"<@{Config.HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}",
+                                embed=False
+                            ))
                             break
 
                         try:
                             await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Aufgetretener Fehler wird analysiert..."))
                             reasoning = await error_reasoning(str(e), llm, chat)
 
-                        except Exception:
-                            await queue.put(DiscordMessageReplyTmp(key="reasoning", value="Analysieren des Fehlers fehlgeschlagen"))
+                        except Exception as f:
+                            logging.error(f)
                             reasoning = str(e)
 
                         finally:
@@ -176,11 +187,11 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                     chat.history.append({"role": "system", "content": tool_results_message})
 
                 for image_content, filename in tool_image_results:
-                    await queue.put(DiscordMessageFile(image_content, filename))
+                    await queue.put(DiscordMessageFile(value=image_content, filename=filename))
                     chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
 
                 for file_content, filename in tool_file_results:
-                    await queue.put(DiscordMessageFile(file_content, filename))
+                    await queue.put(DiscordMessageFile(value=file_content, filename=filename))
                     chat.history.append({"role": "assistant", "content": f"Du hast eine Datei gesendet: {filename}"})
 
 

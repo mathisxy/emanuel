@@ -23,7 +23,7 @@ class BotAction:
         try:
             match action:
                 case BotActions.INTERRUPT:
-                    client = Client(os.getenv("MCP_SERVER_URL"))
+                    client = Client(Config.MCP_SERVER_URL)
                     async with client:
                         try:
                             await client.call_tool("interrupt_image_generation", {})
@@ -32,7 +32,7 @@ class BotAction:
                             return f"❌ Ausnahmefehler: {str(e)}"
 
                 case BotActions.UNLOAD_COMFY:
-                    client = Client(os.getenv("MCP_SERVER_URL"))
+                    client = Client(Config.MCP_SERVER_URL)
                     async with client:
                         try:
                             await client.call_tool("free_image_generation_vram", {})

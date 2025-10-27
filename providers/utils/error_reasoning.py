@@ -29,7 +29,7 @@ async def error_reasoning(
 
     context = f"""
 ***DEINE AUFGABE***
-Du hilfst einem KI Assistenten (Gemma3 12B) einen Fehler zu beheben.
+Du hilfst einem KI Assistenten einen Fehler zu beheben.
 Als Überblick bekommst du:
  - die Instruktionen, die dieser Assistent bekommen hat
  - die letzten relevanten Nachrichten

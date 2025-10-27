@@ -5,7 +5,8 @@ from typing import List, Dict, Literal
 import tiktoken
 
 from core.config import Config
-from core.discord_message import DiscordMessage, DiscordMessageReply, DiscordMessageReplyTmp
+from core.discord_messages import DiscordMessage, DiscordMessageReply, DiscordMessageReplyTmp, \
+    DiscordMessageReplyTmpError
 from providers.base import BaseLLM, LLMResponse, LLMToolCall
 from providers.utils.chat import LLMChat
 from providers.utils.mcp_client_integration import generate_with_mcp
@@ -32,11 +33,11 @@ class OllamaLLM(BaseLLM):
                 await generate_with_mcp(self, self.chats[channel], queue, use_help_bot)
             else:
                 response = await self.generate(self.chats[channel])
-                await queue.put(DiscordMessageReply(response.text))
+                await queue.put(DiscordMessageReply(value=response.text))
 
         except Exception as e:
             logging.error(e, exc_info=True)
-            await queue.put(DiscordMessageReplyTmp(value=str(e), key="error"))
+            await queue.put(DiscordMessageReplyTmpError(value=str(e)))
 
 
     @staticmethod

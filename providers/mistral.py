@@ -4,7 +4,7 @@ from typing import List, Dict
 from mistralai import Mistral
 
 from core.config import Config
-from core.discord_message import DiscordMessage, DiscordMessageReply
+from core.discord_messages import DiscordMessage, DiscordMessageReply
 from providers.base import BaseLLM, LLMResponse, LLMToolCall
 from providers.utils.chat import LLMChat
 from providers.utils.mcp_client_integration import generate_with_mcp
@@ -25,7 +25,7 @@ class MistralLLM(BaseLLM):
             await generate_with_mcp(self, self.chats[channel], queue)
         else:
             response = await self.generate(self.chats[channel])
-            await queue.put(DiscordMessageReply(response.text))
+            await queue.put(DiscordMessageReply(value=response.text))
 
 
     async def generate(self, chat: LLMChat, model_name: str | None = None, temperature: float | None = None,

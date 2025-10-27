@@ -1,3 +1,4 @@
+import logging
 
 from dotenv import load_dotenv
 import os
@@ -7,6 +8,16 @@ from typing import Literal, List
 load_dotenv()
 
 class Config:
+
+    @staticmethod
+    def extract_loglevel(value: str) -> int:
+        level = value.upper()
+        numeric_level: int = getattr(logging, level)
+
+        if not isinstance(numeric_level, int):
+            raise ValueError(f"Ungültiger Loglevel Wert: {value}")
+
+        return numeric_level
 
     @staticmethod
     def extract_ollama_think(value: str|None) -> bool|Literal["low", "medium", "high"]|None:
@@ -42,14 +53,14 @@ class Config:
             return value
 
     @staticmethod
-    def extract_mcp_tool_tags(value: str|None) -> List[str]:
+    def extract_csv_tags(value: str | None) -> List[str]:
         if not value:
             return []
         return [tag.strip() for tag in value.split(",") if tag.strip()]
 
 
 
-    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    LOGLEVEL: int = extract_loglevel(os.getenv("LOGLEVEL", "INFO"))
     DISCORD_TOKEN: str|None = os.getenv("DISCORD_TOKEN")
     MISTRAL_API_KEY: str|None = os.getenv("MISTRAL_API_KEY")
     MISTRAL_MODEL: str = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
@@ -62,6 +73,8 @@ class Config:
     MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", 64000))
     AI: Literal["ollama", "mistral"] = os.getenv("AI", "mistral")
     TOOL_INTEGRATION: bool = os.getenv("TOOL_INTEGRATION", "").lower() == "true"
+    IMAGE_MODEL: bool = os.getenv("IMAGE_MODEL", "").lower() == "true"
+    IMAGE_MODEL_TYPES: List[str] = extract_csv_tags(os.getenv("IMAGE_MODEL_TYPES", "image/jpeg,image/png"))
     MCP_SERVER_URL: str|None = os.getenv("MCP_SERVER_URL")
     MAX_MESSAGE_COUNT: int = int(os.getenv("MAX_MESSAGE_COUNT", 3))
     TOTAL_MESSAGE_SEARCH_COUNT: int = int(os.getenv("TOTAL_MESSAGE_SEARCH_COUNT", 20))
@@ -73,7 +86,7 @@ class Config:
     DISCORD_ID: str|None = os.getenv("DISCORD_ID")
     USERNAMES_CSV_FILE_PATH: str|None = os.getenv("USERNAMES_PATH")
     HELP_DISCORD_ID: str|None = os.getenv("HELP_DISCORD_ID")
-    MCP_TOOL_TAGS: List[str] = extract_mcp_tool_tags(os.getenv("MCP_TOOL_TAGS"))
+    MCP_TOOL_TAGS: List[str] = extract_csv_tags(os.getenv("MCP_TOOL_TAGS"))
     HISTORY_RESET_TEXT: str = os.getenv("HISTORY_RESET_TEXT", " --- ")
 
 

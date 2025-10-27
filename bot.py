@@ -1,5 +1,4 @@
 import asyncio
-import importlib
 import io
 import logging
 from typing import List, Dict
@@ -14,8 +13,8 @@ from core.config import Config
 from core.message_handling import clean_reply, get_member_list
 from core.logging_config import setup_logging
 from core.discord_buttons import ProgressButton
-from core.discord_message import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
-    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
+from core.discord_messages import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
+    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp, DiscordMessageProgressTmp
 from providers.mistral import MistralLLM
 from providers.ollama import OllamaLLM
 
@@ -23,6 +22,8 @@ load_dotenv()
 
 setup_logging()
 
+
+# Discord Intents
 intents = discord.Intents.default()
 intents.message_content = True  # Für Textnachrichten lesen
 intents.messages = True
@@ -32,7 +33,6 @@ intents.presences = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-#module = importlib.import_module(f"providers.{Config.AI}")
 match Config.AI:
     case "ollama":
         pass
@@ -46,7 +46,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
     try:
         await llm.call(history, instructions, queue, channel, use_help_bot)
     except Exception as e:
-        logging.exception(f"FEHLER BEI CALL AI: {e}")
+        logging.exception(e, exc_info=True)
         await queue.put(DiscordMessageReplyTmp(value=f"Ein Fehler ist aufgetreten: {str(e)}", key="error"))
     finally:
         await queue.put(None)
@@ -79,7 +79,7 @@ async def handle_message(message):
                             if isinstance(event, DiscordMessageTmpMixin):
 
                                 view = None
-                                if event.key == "progress":
+                                if isinstance(event, DiscordMessageProgressTmp) and event.cancelable:
                                     view = ProgressButton()
 
                                 await tmp_controller.set_message(event, view)
@@ -103,20 +103,17 @@ async def handle_message(message):
                                 raise Exception("Ungültiger DiscordMessage Typ")
 
                         except Exception as e:
-                            print(e)
+                            logging.exception(e, exc_info=True)
 
 
                 history = []
                 async for msg in message.channel.history(limit=Config.TOTAL_MESSAGE_SEARCH_COUNT, oldest_first=False):
 
-                    if msg.content == os.getenv("HISTORY_RESET_TEXT"):
+                    if msg.content == Config.HISTORY_RESET_TEXT:
                         break
 
                     if len(history) >= Config.MAX_MESSAGE_COUNT:
                         break
-
-                    #if msg.author != bot.user: #and not is_relevant_message(msg):
-                        #continue
 
                     role = "assistant" if msg.author == bot.user else "user"
                     timestamp = msg.created_at.astimezone(pytz.timezone("Europe/Berlin")).strftime("%H:%M:%S")
@@ -126,7 +123,7 @@ async def handle_message(message):
                     if msg.attachments:
                         for attachment in msg.attachments:
 
-                            if attachment.content_type and os.getenv("IMAGE_MODEL", "").lower() == "true" and attachment.content_type in ["image/png", "image/jpeg"]:
+                            if attachment.content_type and Config.IMAGE_MODEL and attachment.content_type in Config.IMAGE_MODEL_TYPES:
                                 image_bytes = await attachment.read()
                                 image_filename = attachment.filename
 
@@ -152,9 +149,10 @@ async def handle_message(message):
 
                     history.append({"role": role, "content": content, **({"images": images} if images else {})})
 
-                history.reverse()
+                history.reverse() # Hoffentlich nicht
 
                 logging.info(history)
+
 
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
                 use_help_bot = isinstance(message.channel, discord.TextChannel)
@@ -173,7 +171,7 @@ Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
                     
 Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789123456789>).
                     
-"""
+""" # TODO modularisieren + Sprachauswahl
 
                 else:
                     instructions = f"Du bist im DM Chat mit {message.author.display_name}.\n"

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Dict
 
-from core.discord_message import DiscordMessage
+from core.discord_messages import DiscordMessage
 from providers.utils.chat import LLMChat
 
 
