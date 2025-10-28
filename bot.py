@@ -14,7 +14,7 @@ from core.message_handling import clean_reply, get_member_list
 from core.logging_config import setup_logging
 from core.discord_buttons import ProgressButton
 from core.discord_messages import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
-    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
+    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp, DiscordMessageReplyTmpError
 from providers.mistral import MistralLLM
 from providers.ollama import OllamaLLM
 
@@ -47,7 +47,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
         await llm.call(history, instructions, queue, channel, use_help_bot)
     except Exception as e:
         logging.exception(e, exc_info=True)
-        await queue.put(DiscordMessageReplyTmp(value=f"Ein Fehler ist aufgetreten: {str(e)}", key="error"))
+        await queue.put(DiscordMessageReplyTmpError(value=f"Ein Fehler ist aufgetreten: {str(e)}"))
     finally:
         await queue.put(None)
 

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from typing import List, Dict
 from mistralai import Mistral
 

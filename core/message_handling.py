@@ -26,7 +26,7 @@ def get_member_list(members: List[discord.Member]) -> List[Dict[str, str | int]]
 
 def clean_reply(reply: str) -> str:
 
-    pattern = r'(<start_of_image>|\<#.*?>)' # TODO Gemma spezifisches pattern zu ollama schieben
+    pattern = r'(<#.*?>)' # TODO Gemma spezifisches pattern zu ollama schieben
     reply = re.sub(pattern, '', reply)
     logging.info(f"REPLY: {reply}")
     return reply.strip()

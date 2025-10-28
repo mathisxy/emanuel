@@ -2,14 +2,13 @@ import asyncio
 import json
 import logging
 import re
-from typing import List
+from typing import List, Dict, Any
 
 from fastmcp import Client
-from onnxruntime.transformers.profile_result_processor import process_results
 
 from core.config import Config
 from core.discord_messages import DiscordMessage, DiscordMessageReplyTmp, \
-    DiscordMessageRemoveTmp, DiscordMessageReply, DiscordMessageReplyTmpError, DiscordMessageProgressTmp
+    DiscordMessageRemoveTmp, DiscordMessageReply, DiscordMessageReplyTmpError
 from providers.base import BaseLLM, LLMToolCall
 from providers.utils.chat import LLMChat
 from providers.utils.error_reasoning import error_reasoning
@@ -54,6 +53,9 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
             response = await llm.generate(chat, tools= mcp_to_dict_tools(mcp_tools) if use_integrated_tools else None)
 
+            logging.info(f"RESPONSE: {response}")
+
+
             if response.text:
 
                 chat.history.append({"role": "assistant", "content": response.text})
@@ -95,7 +97,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                 finally:
                     await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
 
-                chat.history.append({"role": "system", "content": reasoning})
+                chat.history.append({"role": "user", "name": "system", "content": reasoning})
                 tool_call_errors = True
 
                 continue
@@ -131,7 +133,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                         else:
 
                             if use_integrated_tools:
-                                chat.history.append({"role": "assistant", "content": f"#<function_call>{tool_call}</function_call>"})
+                                chat.history.append(construct_tool_call_message([tool_call]))
 
                             run_again = await integration.process_tool_result(name, result, chat) or run_again
 
@@ -156,7 +158,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                         finally:
                             await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
 
-                        chat.history.append({"role": "system", "content": f"#{json.dumps({name: reasoning})}"})
+                        chat.history.append(construct_tool_call_results(name, reasoning))
 
                         tool_call_errors = True
 
@@ -186,5 +188,15 @@ def extract_custom_tool_calls(text: str) -> List[LLMToolCall]:
             raise Exception(f"Fehler beim JSON Dekodieren des Tool Calls: {e}")
 
     return tool_calls
+
+def construct_tool_call_message(tool_calls: List[LLMToolCall]) -> Dict[str, str]:
+
+    return {"role": "system", "tool_calls": [
+        {"id": t.name, "arguments": t.arguments} for t in tool_calls
+    ]}
+
+def construct_tool_call_results(name: str, content: str) -> Dict[str, str]: # TODO modularisieren zum Anpassen für verschiedene Modelle
+
+    return {"role": "system", "id": name, "content": f"#{content}"}
 
 
