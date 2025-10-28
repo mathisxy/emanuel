@@ -14,7 +14,7 @@ from core.message_handling import clean_reply, get_member_list
 from core.logging_config import setup_logging
 from core.discord_buttons import ProgressButton
 from core.discord_messages import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
-    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp, DiscordMessageProgressTmp
+    DiscordMessageTmpMixin, DiscordTemporaryMessagesController, DiscordMessageReplyTmp
 from providers.mistral import MistralLLM
 from providers.ollama import OllamaLLM
 

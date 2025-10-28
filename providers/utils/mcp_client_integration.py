@@ -136,7 +136,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                     try:
 
                         formatted_args = "\n".join(f" - **{k}:** {v}" for k, v in arguments.items())
-                        await queue.put(DiscordMessageReplyTmp(key=name, value=f"Das Tool {name} wird aufgerufen:\n{formatted_args}"))
+                        await queue.put(DiscordMessageReplyTmp(key=name, value=f"Das Tool **{name}** wird aufgerufen:\n{formatted_args}"))
 
                         result = await client.call_tool(name, arguments)
 
