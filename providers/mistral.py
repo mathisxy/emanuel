@@ -7,7 +7,7 @@ from core.config import Config
 from core.discord_messages import DiscordMessage, DiscordMessageReply
 from providers.base import BaseLLM, LLMResponse, LLMToolCall
 from providers.utils.chat import LLMChat
-from providers.utils.mcp_client_integration import generate_with_mcp
+from providers.utils.mcp_client import generate_with_mcp
 
 client = Mistral(api_key=Config.MISTRAL_API_KEY)
 
@@ -21,8 +21,8 @@ class MistralLLM(BaseLLM):
         instructions_entry = {"role": "system", "content": instructions}
         self.chats[channel].update_history(history, instructions_entry)
 
-        if Config.MCP_SERVER_URL:
-            await generate_with_mcp(self, self.chats[channel], queue)
+        if Config.MCP_INTEGRATION_CLASS:
+            await generate_with_mcp(self, self.chats[channel], queue, self.mcp_client_integration_module(queue))
         else:
             response = await self.generate(self.chats[channel])
             await queue.put(DiscordMessageReply(value=response.text))

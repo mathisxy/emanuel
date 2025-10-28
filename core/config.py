@@ -76,6 +76,7 @@ class Config:
     IMAGE_MODEL: bool = os.getenv("IMAGE_MODEL", "").lower() == "true"
     IMAGE_MODEL_TYPES: List[str] = extract_csv_tags(os.getenv("IMAGE_MODEL_TYPES", "image/jpeg,image/png"))
     MCP_SERVER_URL: str|None = os.getenv("MCP_SERVER_URL")
+    MCP_INTEGRATION_CLASS = os.getenv("MCP_INTEGRATION_CLASS", "providers.utils.mcp_integrations.base")
     MAX_MESSAGE_COUNT: int = int(os.getenv("MAX_MESSAGE_COUNT", 3))
     TOTAL_MESSAGE_SEARCH_COUNT: int = int(os.getenv("TOTAL_MESSAGE_SEARCH_COUNT", 20))
     INSTRUCTIONS: str = os.getenv("INSTRUCTIONS", "")

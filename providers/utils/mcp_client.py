@@ -1,52 +1,34 @@
 import asyncio
-import base64
 import json
 import logging
-import mimetypes
-import os
 import re
-import secrets
 from typing import List
 
 from fastmcp import Client
-from fastmcp.client.client import CallToolResult
-from fastmcp.client.logging import LogMessage
-from mcp import Tool
+from onnxruntime.transformers.profile_result_processor import process_results
 
 from core.config import Config
-from core.discord_messages import DiscordMessage, DiscordMessageFileTmp, DiscordMessageReplyTmp, \
-    DiscordMessageProgressTmp, \
-    DiscordMessageRemoveTmp, DiscordMessageFile, DiscordMessageReply, DiscordMessageReplyTmpError
+from core.discord_messages import DiscordMessage, DiscordMessageReplyTmp, \
+    DiscordMessageRemoveTmp, DiscordMessageReply, DiscordMessageReplyTmpError, DiscordMessageProgressTmp
 from providers.base import BaseLLM, LLMToolCall
 from providers.utils.chat import LLMChat
 from providers.utils.error_reasoning import error_reasoning
+from providers.utils.mcp_client_integrations.base import MCPIntegration
 from providers.utils.response_filtering import filter_response
 from providers.utils.tool_calls import mcp_to_dict_tools, get_custom_tools_system_prompt, get_tools_system_prompt
 
 
-async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[DiscordMessage | None], use_help_bot: bool = False):
-
-    async def log_handler(message: LogMessage):
-        if message.data.get("msg") == "preview_image":
-            image_base64 = message.data.get("extra").get("base64")
-            image_type = message.data.get("extra").get("type")
-            image_bytes = base64.b64decode(image_base64)
-            await queue.put(DiscordMessageFileTmp(value=image_bytes, filename=f"preview.{image_type}", cancelable=True))
-        else:
-            await queue.put(DiscordMessageReplyTmp(value=str(message.data.get("msg")), key=message.level.lower()))
-    async def progress_handler(progress: float, total: float|None, message: str|None):
-        logging.debug(f"Progress: {progress}/{total}:{message}")
-        await queue.put(DiscordMessageProgressTmp(progress=progress, total=total, cancelable=True))
+async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[DiscordMessage | None], integration: MCPIntegration, use_help_bot: bool = False):
 
     if not Config.MCP_SERVER_URL:
         raise Exception("Kein MCP Server URL verfügbar")
-    client = Client(Config.MCP_SERVER_URL, log_handler=log_handler, progress_handler=progress_handler)
+    client = Client(Config.MCP_SERVER_URL, log_handler=integration.log_handler, progress_handler=integration.progress_handler)
 
     async with client:
 
         mcp_tools = await client.list_tools()
 
-        mcp_tools = filter_tool_list(mcp_tools)
+        mcp_tools = integration.filter_tool_list(mcp_tools)
         mcp_dict_tools = mcp_to_dict_tools(mcp_tools)
 
         logging.info(mcp_tools)
@@ -121,9 +103,7 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
             if tool_calls:
 
-                tool_results = []
-                tool_image_results = []
-                tool_file_results = []
+                run_again = False
 
                 for tool_call in tool_calls:
 
@@ -140,18 +120,20 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
                         result = await client.call_tool(name, arguments)
 
+
+
                         logging.info(f"Tool Call Result bekommen für {name}")
 
                         if not result.content:
                             logging.warning("Kein Tool Result Content, manuelle Unterbrechung")
-                            break # Manuelle Unterbrechung
+                            continue # Manuelle Unterbrechung
 
                         else:
 
                             if use_integrated_tools:
                                 chat.history.append({"role": "assistant", "content": f"#<function_call>{tool_call}</function_call>"})
 
-                            process_tool_result(name, result, tool_results, tool_image_results, tool_file_results)
+                            run_again = await integration.process_tool_result(name, result, chat) or run_again
 
                     except Exception as e:
                         logging.exception(e, exc_info=True)
@@ -174,47 +156,19 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                         finally:
                             await queue.put(DiscordMessageRemoveTmp(key="reasoning"))
 
-                        tool_results.append({name: reasoning})
+                        chat.history.append({"role": "system", "content": f"#{json.dumps({name: reasoning})}"})
 
                         tool_call_errors = True
 
 
-                if tool_results:
-                    tool_results_message = f"#{json.dumps({"tool_results": tool_results})}"
-
-                    logging.info(tool_results_message)
-
-                    chat.history.append({"role": "system", "content": tool_results_message})
-
-                for image_content, filename in tool_image_results:
-                    await queue.put(DiscordMessageFile(value=image_content, filename=filename))
-                    chat.history.append({"role": "assistant", "content": "", "images": [os.path.join("downloads", filename)]})
-
-                for file_content, filename in tool_file_results:
-                    await queue.put(DiscordMessageFile(value=file_content, filename=filename))
-                    chat.history.append({"role": "assistant", "content": f"Du hast eine Datei gesendet: {filename}"})
-
-
                 logging.info(chat.history)
 
-                if not tool_results:
+                if not run_again:
+                    logging.debug("Die Tool Results werden nicht erneut vom LLM verarbeitet")
                     break
 
             else:
                 break
-
-
-def filter_tool_list(tools: List[Tool]):
-
-    tags = Config.MCP_TOOL_TAGS
-    logging.info(tags)
-
-    return [
-        tool for tool in tools
-        if hasattr(tool, 'meta') and tool.meta and
-           tool.meta.get('_fastmcp', {}) and
-           any(tag in tool.meta['_fastmcp'].get('tags', []) for tag in tags)
-    ]
 
 
 def extract_custom_tool_calls(text: str) -> List[LLMToolCall]:
@@ -232,37 +186,5 @@ def extract_custom_tool_calls(text: str) -> List[LLMToolCall]:
             raise Exception(f"Fehler beim JSON Dekodieren des Tool Calls: {e}")
 
     return tool_calls
-
-def process_tool_result(name: str, result: CallToolResult, tool_results: List, tool_image_results: List, tool_file_results: List):
-
-    if not result.content:
-        raise Exception(f"Das Tool Result hat keinen Inhalt.")
-    logging.info(result.content[0].type)
-
-    if result.content[0].type == "text":
-        logging.info(result.content[0].text)
-
-    if result.content[0].type == "image" or result.content[0].type == "audio":
-
-        image_content = base64.b64decode(result.content[0].data)
-        media_type = result.content[0].mimeType
-        logging.debug(media_type)
-        ext = mimetypes.guess_extension(media_type)
-        logging.debug(ext)
-
-        filename = f"{secrets.token_urlsafe(8)}{ext}"
-
-        file_info = image_content, filename
-
-        if result.content[0].type == "image":
-            tool_image_results.append(file_info)
-        else:
-            tool_file_results.append(file_info)
-
-        with open(os.path.join("downloads", filename), "wb") as f:
-            f.write(image_content)
-
-    else:
-        tool_results.append({name: f"{result.data}"})
 
 

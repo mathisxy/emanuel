@@ -5,11 +5,10 @@ from typing import List, Dict, Literal
 import tiktoken
 
 from core.config import Config
-from core.discord_messages import DiscordMessage, DiscordMessageReply, DiscordMessageReplyTmp, \
-    DiscordMessageReplyTmpError
+from core.discord_messages import DiscordMessage, DiscordMessageReply, DiscordMessageReplyTmpError
 from providers.base import BaseLLM, LLMResponse, LLMToolCall
 from providers.utils.chat import LLMChat
-from providers.utils.mcp_client_integration import generate_with_mcp
+from providers.utils.mcp_client import generate_with_mcp
 from providers.utils.vram import wait_for_vram
 
 
@@ -30,7 +29,7 @@ class OllamaLLM(BaseLLM):
             logging.info(f"System Message Tokens: {len(enc.encode(self.chats[channel].system_entry["content"]))}")
 
             if Config.MCP_SERVER_URL:
-                await generate_with_mcp(self, self.chats[channel], queue, use_help_bot)
+                await generate_with_mcp(self, self.chats[channel], queue, self.mcp_client_integration_module(queue), use_help_bot)
             else:
                 response = await self.generate(self.chats[channel])
                 await queue.put(DiscordMessageReply(value=response.text))
