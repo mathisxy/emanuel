@@ -1,10 +1,9 @@
-import os
-
 import discord
 
 from discord import app_commands
 from discord.ext import commands
 
+from core.config import Config
 from core.discord_actions import BotActions, BotAction
 
 
@@ -23,7 +22,7 @@ class CommandsCog(commands.Cog):
         app_commands.Choice(name="Nachrichtenverlauf zurücksetzen", value=BotActions.RESET)
     ])
 
-    @app_commands.command(name=os.getenv("COMMAND_NAME"), description="Steuere den Bot")
+    @app_commands.command(name=Config.COMMAND_NAME, description="Steuere den Bot")
     async def emanuel(self, interaction: discord.Interaction, action: app_commands.Choice[str]):
 
         try:
