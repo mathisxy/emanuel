@@ -3,6 +3,16 @@
 
 This project implements a custom **Discord Bot** with integrated **LLM Backend** and optional **MCP Integration**.
 
+## ⚙️ Installation
+
+1. 📦 Clone Repository
+   ```
+   git clone https://github.com/mathisxy/emanuel.git
+   cd emanuel
+   ```
+2. 🧰 Install Dependencies
+   
+
 
 ## 👥 User Info Synchronization Logic
 
