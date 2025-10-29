@@ -205,11 +205,11 @@ async def on_message(message: discord.Message):
 
 @bot.event
 async def on_ready():
-    logging.info(f"🤖 Bot online als {bot.user}!")
+    print(f"🤖 Bot online as {bot.user}!")
     # Alle Cogs laden
     await bot.load_extension("cogs.commands")
     await bot.tree.sync()
-    logging.info("✅ Slash-Commands synchronisiert")
+    print("✅ Slash-Commands synchronized")
 
 
 
