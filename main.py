@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 import os
 
 from core.config import Config
-from core.message_handling import clean_reply, get_member_list
+from core.instructions import get_instructions_from_discord_info
+from core.message_handling import clean_reply
 from core.logging_config import setup_logging
 from core.discord_buttons import ProgressButton
 from core.discord_messages import DiscordMessage, DiscordMessageFile, DiscordMessageReply, \
@@ -157,24 +158,7 @@ async def handle_message(message):
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
                 use_help_bot = isinstance(message.channel, discord.TextChannel)
 
-                if not isinstance(message.channel, discord.DMChannel):
-
-                    member_list = get_member_list(message.channel.members)
-                    member_list = "\n".join([f" - {m}" for m in member_list])
-
-                    logging.info(member_list)
-
-                    instructions = f"""Du bist im Discord Channel: {message.channel.name}
-                    
-Hier ist eine Liste aller Mitglieder die du gerne taggen kannst:
-{member_list}
-                    
-Wenn du jemanden erwähnen willst, benutze immer exakt die Form <@Discord ID> (z.B: <@123456789123456789>).
-                    
-""" # TODO modularisieren + Sprachauswahl
-
-                else:
-                    instructions = f"Du bist im DM Chat mit {message.author.display_name}.\n"
+                instructions = get_instructions_from_discord_info(message)
 
                 instructions += Config.INSTRUCTIONS
 

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from fastmcp import Client
 
@@ -34,9 +34,9 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
         logging.info(mcp_dict_tools)
 
         if not Config.TOOL_INTEGRATION:
-            chat.system_entry["content"] += get_custom_tools_system_prompt(mcp_tools, Config.LANGUAGE)
+            chat.system_entry["content"] += get_custom_tools_system_prompt(mcp_tools)
         else:
-            chat.system_entry["content"] += get_tools_system_prompt(Config.LANGUAGE)
+            chat.system_entry["content"] += get_tools_system_prompt()
 
         tool_call_errors = False
 

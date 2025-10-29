@@ -1,7 +1,9 @@
 import json
-from typing import List, Dict, Literal
+from typing import List, Dict
 
 from fastmcp.tools import Tool
+
+from core.config import Config
 
 
 def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict[str, str|Dict]]:
@@ -21,12 +23,13 @@ def mcp_to_dict_tools(mcp_tools: List[Tool]) -> List[Dict[str, str|Dict]]:
     return dict_tools
 
 
-def get_custom_tools_system_prompt(mcp_tools: List[Tool], language: Literal["de" ,"en"] = "de") -> str:
+def get_custom_tools_system_prompt(mcp_tools: List[Tool]) -> str:
 
     dict_tools = mcp_to_dict_tools(mcp_tools)
 
-    if language == "de":
-        return f"""
+    match Config.LANGUAGE:
+        case "de":
+            return f"""
 Du bist hilfreich und zuverlässig.
 
 **WAS DU KANNST**
@@ -62,10 +65,11 @@ Alle Treffer werden mit JSON geparst und dann aus der Antwort ausgeschnitten.
 Falls es Treffer gibt, werden die entsprechenden Tools anhand der JSON-Objekte aufgerufen.
 Die Ergebnisse werden dann temporär an den Nachrichtenverlauf angehängt und du wirst damit direkt nochmal aufgerufen.
 Dann antwortest du immer auf Basis der Ergebnisse dem User noch einmal. Der User bekommt die Ergebnisse nicht.
+
 """
 
-    if language == "en":
-        return f"""
+        case "en":
+            return f"""
 You are helpful and reliable.
 
 **WHAT YOU CAN DO**
@@ -100,14 +104,17 @@ All matches are parsed as JSON and then removed from the response.
 If matches are found, the corresponding tools are executed based on the JSON objects.  
 The results are temporarily attached to the message history, and you are called again with them.  
 You can then respond to the user based on those results. The user does not see the raw results.
+
 """
+        case _:
+            raise TypeError(f"Invalid Language: {Config.LANGUAGE}")
 
 
+def get_tools_system_prompt() -> str:
 
-def get_tools_system_prompt(language: Literal["de", "en"] = "de") -> str:
-
-    if language == "de":
-        return """
+    match Config.LANGUAGE:
+        case "de":
+            return """
 
 ***Tool Calls***
 
@@ -119,10 +126,12 @@ Deren Ergebnisse (tool_results) werden dann temporär an den Nachrichtenverlauf 
 Dann kannst du auf Basis der Ergebnisse dem User antworten. Der User bekommt die Ergebnisse nicht.
 
 ⚠️ **WICHTIG**
-Rufe das Tool dann NIEMALS wieder erneut auf, da es sonst zu einer Endlosschleife kommt! Antworte stattdessen dem User basierend auf den Ergebnissen."""
+Rufe das Tool dann NIEMALS wieder erneut auf, da es sonst zu einer Endlosschleife kommt! Antworte stattdessen dem User basierend auf den Ergebnissen.
 
-    if language == "en":
-        return """
+"""
+
+        case "en":
+            return """
 ***Tool Calls***
 
 You have a list of tools (functions) that you can use. You are an expert at using these tools.
@@ -135,4 +144,7 @@ You can then respond to the user based on these results. The user does not see t
 ⚠️ **IMPORTANT**  
 Never call the tool again after receiving its results — otherwise, it will cause an infinite loop!  
 Instead, respond to the user based on the results.
+
 """
+        case _:
+            raise TypeError(f"Invalid Language: {Config.LANGUAGE}")
