@@ -34,10 +34,14 @@ class MultimediaMCPIntegration(MCPIntegration):
         logging.debug(f"Progress: {progress}/{total}:{message}")
         await self.queue.put(DiscordMessageProgressTmp(progress=progress, total=total, cancelable=True))
 
+    # ---------- Tool Filtering ----------
     def filter_tool_list(self, tools: List[Tool]) -> List[Tool]:
 
         tags = Config.MCP_TOOL_TAGS
-        logging.info(tags)
+        logging.info("Tool List Filter Tags: %s",tags)
+
+        if not tags:
+            return tools
 
         return [
             tool for tool in tools

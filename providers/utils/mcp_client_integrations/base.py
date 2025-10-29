@@ -1,6 +1,6 @@
 import logging
 from asyncio import Queue
-from typing import List, Tuple
+from typing import List
 
 from fastmcp.client.logging import LogMessage
 from mcp import Tool
@@ -38,8 +38,14 @@ class MCPIntegration:
 
         logging.debug(result)
 
-        result_str = str(result.data) # Nur Text, Multimedia führt zu None im Result
+        if result.data:
 
-        logging.info(result_str)
+            result_str = str(result.data) # Nur Text, Multimedia führt zu None im Result
 
-        chat.history.append({"role": "system", "content": f"#{{tool_result für {name}: {result_str}}}"})
+            logging.info(result_str)
+
+            chat.history.append({"role": "system", "content": f"#{{tool_result für {name}: {result_str}}}"})
+
+            return True
+
+        return False
