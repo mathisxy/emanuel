@@ -28,7 +28,7 @@ class BaseLLM(ABC):
 
     def __init__(self):
         self.chats: Dict[str, LLMChat] = {}
-        self.mcp_client_integration_module: Type[MCPIntegration] = self.load_integration_class()
+        self.mcp_client_integration_module: Type[MCPIntegration] = self.load_mcp_integration_class()
 
     @abstractmethod
     async def call(self, history: List[Dict], instructions: str, queue: asyncio.Queue[DiscordMessage | None], channel: str):
@@ -42,7 +42,7 @@ class BaseLLM(ABC):
 
 
     @staticmethod
-    def load_integration_class():
+    def load_mcp_integration_class():
 
         class_name = Config.MCP_INTEGRATION_CLASS
 
