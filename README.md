@@ -11,7 +11,7 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    cd emanuel
    ```
 2. 🧰 Install Dependencies
-   Make sure that **Python 3.12+** is installed
+   Make sure that **Python 3.12+** is installed\
    Create and activate a Python Virtual Environment
 
    **Linux / macOS**
