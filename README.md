@@ -11,7 +11,9 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    cd emanuel
    ```
 2. 🧰 Install Dependencies
-   
+   ```
+   pip install -r requirements.txt
+   ```   
 
 
 ## 👥 User Info Synchronization Logic
