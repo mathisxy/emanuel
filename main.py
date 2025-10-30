@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import os
 
 from core.config import Config
+from core.external_help_bot import use_help_bot
 from core.instructions import get_instructions_from_discord_info
 from core.message_handling import clean_reply
 from core.logging_config import setup_logging
@@ -48,7 +49,7 @@ async def call_ai(history: List[Dict], instructions: str, queue: asyncio.Queue[D
         await llm.call(history, instructions, queue, channel, use_help_bot)
     except Exception as e:
         logging.exception(e, exc_info=True)
-        await queue.put(DiscordMessageReplyTmpError(value=f"Ein Fehler ist aufgetreten: {str(e)}"))
+        await queue.put(DiscordMessageReplyTmpError(value=str(e)))
     finally:
         await queue.put(None)
 
@@ -124,7 +125,7 @@ async def handle_message(message):
                     if msg.attachments:
                         for attachment in msg.attachments:
 
-                            if attachment.content_type and Config.OLLAMA_IMAGE_MODEL and attachment.content_type in Config.OLLAMA_IMAGE_MODEL_TYPES:
+                            if attachment.content_type and Config.AI == "ollama" and Config.OLLAMA_IMAGE_MODEL and attachment.content_type in Config.OLLAMA_IMAGE_MODEL_TYPES: # TODO Modularize + Language Options
                                 image_bytes = await attachment.read()
                                 image_filename = attachment.filename
 
@@ -156,19 +157,18 @@ async def handle_message(message):
 
 
                 channel_name = message.author.display_name if isinstance(message.channel, discord.DMChannel) else message.channel.name
-                use_help_bot = isinstance(message.channel, discord.TextChannel)
 
                 instructions = get_instructions_from_discord_info(message)
 
                 instructions += Config.INSTRUCTIONS
 
                 instructions = instructions.replace("[#NAME]", Config.NAME)
-                instructions = instructions.replace("[#DISCORD_ID]", Config.DISCORD_ID)
+                instructions = instructions.replace("[#DISCORD_ID]", str(Config.DISCORD_ID))
 
                 logging.info(instructions)
 
                 task1 = asyncio.create_task(listener(queue))
-                task2 = asyncio.create_task(call_ai(history, instructions, queue, channel_name, use_help_bot))
+                task2 = asyncio.create_task(call_ai(history, instructions, queue, channel_name, use_help_bot(message)))
 
                 await asyncio.gather(task1, task2)
 

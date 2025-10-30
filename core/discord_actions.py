@@ -27,7 +27,7 @@ class BotAction:
                     async with client:
                         try:
                             await client.call_tool("interrupt_image_generation", {})
-                            return "🛑 Bildgenerierung abgebrochen"
+                            return "🛑 Generierung abgebrochen"
                         except Exception as e:
                             return f"❌ Ausnahmefehler: {str(e)}"
 

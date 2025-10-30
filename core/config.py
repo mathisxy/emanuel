@@ -92,9 +92,9 @@ class Config:
     NAME: str = os.getenv("NAME", "Bot")
     INSTRUCTIONS: str = os.getenv("INSTRUCTIONS", "")
     LANGUAGE: Literal["de", "en"] = os.getenv("LANGUAGE", "de")
-    DISCORD_ID: str|None = os.getenv("DISCORD_ID")
+    DISCORD_ID: int|None = int(value) if (value := os.getenv("DISCORD_ID")) else None
     USERNAMES_CSV_FILE_PATH: str|None = os.getenv("USERNAMES_PATH")
-    HELP_DISCORD_ID: str|None = os.getenv("HELP_DISCORD_ID")
+    HELP_DISCORD_ID: int|None = int(value) if (value := os.getenv("HELP_DISCORD_ID")) else None
     HISTORY_RESET_TEXT: str = os.getenv("HISTORY_RESET_TEXT", " --- ")
 
     COMMAND_NAME: str = os.getenv("COMMAND_NAME", "bot")
