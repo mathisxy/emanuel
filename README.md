@@ -3,6 +3,8 @@
 
 This project implements a custom **Discord Bot** with integrated **LLM Backend** and optional **MCP Integration**.
 
+<br>
+
 ## ⚙️ Installation
 
 1. 📦 Clone Repository:
@@ -32,19 +34,68 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    ```
    
 4. 🔑 Setup Environment Variables
-   ```bash
-   cp .env.example .env
-   ```
-   Afterwards open the .env file and fill in your Environment Variables
-   ```bash
-   nano .env
-   ```
+   **Option 1: Manual**  
+   1. Copy the example file:  
+      ```bash
+      cp .env.example .env
+      ```
+   2. Open the `.env` file in your preferred editor and fill in the values:  
+      ```bash
+      nano .env
+      ```
+
+   **Option 2: Interactive with `minimal_setup.py`**  
+   1. Make sure `minimal_setup.py` is in your project directory.  
+   2. Run the setup script:  
+      ```bash
+      python minimal_setup.py
+      ```
+   3. Follow the prompts 
+   4. The script will automatically create a `.env.{BotName}` file with all values filled in.  
+   
+   **Note:** You can rename the generated file to `.env` so your bot can use it directly:  
+      ```bash
+      cp .env.Emanuel .env
+      ```
    
 6. ▶️ Start Bot
    ```bash
    python main.py
    ```
 
+<br>
+
+## 💬 Usage
+
+After starting the bot, you can add it to your **Discord server** and interact with it.
+
+### 🚀 Adding the Bot to Your Server
+
+1. Go to your bot’s **installation page** on the Discord Developer Portal:  
+   [Discord Bot Installation](https://discord.com/developers/applications/1433566130965844120/installation)
+2. Scroll down to the **“OAuth2 URL Generator / Bot”** section.
+3. Under **Scopes**, make sure `bot` is selected.
+4. Under **Bot Permissions**, choose the permissions your bot needs (Im currently not sure which are required)
+5. Copy the generated **Invite Link**.
+6. Open the link in your browser and select the server where you want to add the bot.
+
+> Tip: You must have the **Manage Server** permission on the server to add the bot.
+
+---
+
+### 💡 Interacting with the Bot
+
+- Mention the bot in any channel to chat with it:
+
+   ```
+   @Botname Hello!
+   ```
+- Slash commands are also available, e.g.:
+  ```
+  /botname ...
+  ```
+
+<br>
 
 ## 👥 User Info Synchronization Logic
 
@@ -66,6 +117,8 @@ The bot automatically builds a combined list of user data from **Discord** and a
 
 4. The final member list will include **all Discord users and all CSV entries**, even if one source is missing data for some users.  
    Overlapping fields from Discord take priority over CSV data.
+
+---
 
 ### 📄 Example CSV
 
