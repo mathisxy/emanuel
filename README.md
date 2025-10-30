@@ -59,10 +59,7 @@ After starting the bot, you can add it to your **Discord server** and interact w
    [Discord Bot Installation](https://discord.com/developers/applications/1433566130965844120/installation)
 2. Scroll down to the **“OAuth2 URL Generator / Bot”** section.
 3. Under **Scopes**, make sure `bot` is selected.
-4. Under **Bot Permissions**, choose the permissions your bot needs, e.g.:
-   - `Send Messages`
-   - `Read Messages/View Channels`
-   - `Use Slash Commands`
+4. Under **Bot Permissions**, choose the permissions your bot needs (Im currently not sure which are required)
 5. Copy the generated **Invite Link**.
 6. Open the link in your browser and select the server where you want to add the bot.
 
@@ -73,6 +70,14 @@ After starting the bot, you can add it to your **Discord server** and interact w
 ### 💡 Interacting with the Bot
 
 - Mention the bot in any channel to chat with it:
+
+   ```
+   @Botname Hello!
+   ```
+- Slash commands are also available, e.g.:
+  ```
+  /botname ...
+  ```
 
 <br>
 
@@ -96,6 +101,8 @@ The bot automatically builds a combined list of user data from **Discord** and a
 
 4. The final member list will include **all Discord users and all CSV entries**, even if one source is missing data for some users.  
    Overlapping fields from Discord take priority over CSV data.
+
+---
 
 ### 📄 Example CSV
 
