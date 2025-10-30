@@ -5,14 +5,14 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
 
 ## ⚙️ Installation
 
-1. 📦 Clone Repository
+1. 📦 Clone Repository:
    ```bash
    git clone https://github.com/mathisxy/emanuel.git
    cd emanuel
    ```
-2. 🧰 Install Dependencies
-   Make sure that **Python 3.12+** is installed
-   Create and activate a Python Virtual Environment
+2. 🧰 Install Dependencies\
+   Make sure that **Python 3.12+** is installed\
+   Create and activate a Python Virtual Environment:
 
    **Linux / macOS**
    ```bash
@@ -26,17 +26,21 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    .\venv\Scripts\Activate.ps1
    ```
    
-   Afterwards install the requirements
+   Afterwards install the requirements:
    ```bash
    pip install -r requirements.txt
    ```
    
-3. 🔑 Umgebungsvariablen einrichten
+4. 🔑 Setup Environment Variables
    ```bash
    cp .env.example .env
    ```
+   Afterwards open the .env file and fill in your Environment Variables
+   ```bash
+   nano .env
+   ```
    
-4. ▶️ Bot starten
+6. ▶️ Start Bot
    ```bash
    python main.py
    ```
