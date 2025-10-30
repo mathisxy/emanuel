@@ -1,7 +1,8 @@
 # LLM Discord Bot
 
 
-This project implements a custom **Discord Bot** with integrated **LLM Backend** and optional **MCP Integration**.
+This project implements a custom **Discord Bot** with integrated **LLM Backend** and optional **MCP Integration**.\
+> Under development, not feature complete.
 
 <br>
 
