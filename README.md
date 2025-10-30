@@ -34,13 +34,29 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    ```
    
 4. 🔑 Setup Environment Variables
-   ```bash
-   cp .env.example .env
-   ```
-   Afterwards open the .env file and fill in your Environment Variables
-   ```bash
-   nano .env
-   ```
+   **Option 1: Manual**  
+   1. Copy the example file:  
+      ```bash
+      cp .env.example .env
+      ```
+   2. Open the `.env` file in your preferred editor and fill in the values:  
+      ```bash
+      nano .env
+      ```
+
+   **Option 2: Interactive with `minimal_setup.py`**  
+   1. Make sure `minimal_setup.py` is in your project directory.  
+   2. Run the setup script:  
+      ```bash
+      python minimal_setup.py
+      ```
+   3. Follow the prompts 
+   4. The script will automatically create a `.env.{BotName}` file with all values filled in.  
+   
+   **Note:** You can rename the generated file to `.env` so your bot can use it directly:  
+      ```bash
+      cp .env.Emanuel .env
+      ```
    
 6. ▶️ Start Bot
    ```bash
