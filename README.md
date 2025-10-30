@@ -35,8 +35,12 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    ```bash
    cp .env.example .env
    ```
+   Afterwards open the .env file and fill in your Environment Variables
+   ```bash
+   nano .env
+   ```
    
-5. ▶️ Start Bot
+6. ▶️ Start Bot
    ```bash
    python main.py
    ```
