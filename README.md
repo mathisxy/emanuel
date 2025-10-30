@@ -34,7 +34,8 @@ This project implements a custom **Discord Bot** with integrated **LLM Backend**
    pip install -r requirements.txt
    ```
    
-4. 🔑 Setup Environment Variables
+4. 🔑 Setup Environment Variables\
+   <br>
    **Option 1: Manual**  
    1. Copy the example file:  
       ```bash
