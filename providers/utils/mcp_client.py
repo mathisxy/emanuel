@@ -76,9 +76,9 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
 
                 logging.exception(e, exc_info=True)
 
-                if Config.HELP_DISCORD_ID and use_help_bot:
+                if Config.MCP_ERROR_HELP_DISCORD_ID and use_help_bot:
                     await queue.put(DiscordMessageReplyTmpError(
-                        value=f"<@{Config.HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}",
+                        value=f"<@{Config.MCP_ERROR_HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}",
                         embed=False
                     ))
                     break
@@ -140,9 +140,9 @@ async def generate_with_mcp(llm: BaseLLM, chat: LLMChat, queue: asyncio.Queue[Di
                     except Exception as e:
                         logging.exception(e, exc_info=True)
 
-                        if Config.HELP_DISCORD_ID and use_help_bot:
+                        if Config.MCP_ERROR_HELP_DISCORD_ID and use_help_bot:
                             await queue.put(DiscordMessageReplyTmpError(
-                                value=f"<@{Config.HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}",
+                                value=f"<@{Config.MCP_ERROR_HELP_DISCORD_ID}> Ein Fehler ist aufgetreten: {e}",
                                 embed=False
                             ))
                             break

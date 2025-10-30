@@ -82,6 +82,7 @@ class Config:
     MCP_SERVER_URL: str|None = os.getenv("MCP_SERVER_URL")
     MCP_INTEGRATION_CLASS = os.getenv("MCP_INTEGRATION_CLASS", "providers.utils.mcp_integrations.base")
     MCP_TOOL_TAGS: List[str] = extract_csv_tags(os.getenv("MCP_TOOL_TAGS"))
+    MCP_ERROR_HELP_DISCORD_ID: int | None = int(value) if (value := os.getenv("MCP_ERROR_HELP_DISCORD_ID")) else None
 
     MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", 64000))
     MAX_MESSAGE_COUNT: int = int(os.getenv("MAX_MESSAGE_COUNT", 3))
@@ -94,7 +95,6 @@ class Config:
     LANGUAGE: Literal["de", "en"] = os.getenv("LANGUAGE", "de")
     DISCORD_ID: int|None = int(value) if (value := os.getenv("DISCORD_ID")) else None
     USERNAMES_CSV_FILE_PATH: str|None = os.getenv("USERNAMES_PATH")
-    HELP_DISCORD_ID: int|None = int(value) if (value := os.getenv("HELP_DISCORD_ID")) else None
     HISTORY_RESET_TEXT: str = os.getenv("HISTORY_RESET_TEXT", " --- ")
 
     COMMAND_NAME: str = os.getenv("COMMAND_NAME", "bot")
