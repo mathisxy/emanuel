@@ -1,5 +1,7 @@
 # Discord AI Bot
 
+> Not in active development
+
 
 This project implements a custom **Discord Bot** with integrated **AI Backend** and optional tool calling via **MCP Integration**.
 
